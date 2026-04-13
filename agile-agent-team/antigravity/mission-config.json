@@ -1,0 +1,140 @@
+{
+  "_comment": "Agile Agent Team — Antigravity Mission Configuration (Squad Template)",
+  "_version": "1.0",
+  "_description": "Reusable mission template for the agile agent team. Load this in Antigravity Manager View to pre-configure all four workspaces.",
+
+  "mission": {
+    "name": "Agile Agent Team Mission",
+    "description": "Replace this with your business goal before launching.",
+    "session_folder": "sessions/mission-{timestamp}",
+    "artifact_structure": {
+      "handoffs": "handoffs/",
+      "po_artifacts": "artifacts/po/",
+      "architect_artifacts": "artifacts/architect/",
+      "qa_artifacts": "artifacts/qa/",
+      "dev_artifacts": "artifacts/dev/",
+      "tests": "tests/",
+      "source": "src/"
+    }
+  },
+
+  "workspaces": [
+    {
+      "id": "ws-product-owner",
+      "name": "Product Owner",
+      "phase": 1,
+      "parallel_group": null,
+      "model": "gemini-3.1-pro",
+      "skill": "product-owner",
+      "task_template": "MISSION BRIEF is in mission.md. Read it. Follow your skill instructions to produce user stories and acceptance criteria. Save all artifacts to artifacts/po/. Save handoff to handoffs/po-to-architect.md.",
+      "trigger": "manual",
+      "wait_for": [],
+      "produces": ["handoffs/po-to-architect.md", "artifacts/po/"],
+      "on_blocked": "surface_to_user"
+    },
+
+    {
+      "id": "ws-software-architect",
+      "name": "Software Architect",
+      "phase": 2,
+      "parallel_group": null,
+      "model": "gemini-3.1-pro-high",
+      "skill": "software-architect",
+      "task_template": "Read all PO artifacts in artifacts/po/ and handoffs/po-to-architect.md. Follow your skill instructions to design the architecture. Save artifacts to artifacts/architect/. Save handoffs/architect-to-qa.md and handoffs/architect-to-dev.md.",
+      "trigger": "on_artifact",
+      "wait_for": ["handoffs/po-to-architect.md"],
+      "produces": [
+        "artifacts/architect/architecture-decision-record.md",
+        "artifacts/architect/api-contracts.yaml",
+        "artifacts/architect/task-breakdown.md",
+        "handoffs/architect-to-qa.md",
+        "handoffs/architect-to-dev.md"
+      ],
+      "on_blocked": "route_to_ws-product-owner"
+    },
+
+    {
+      "id": "ws-qa-planning",
+      "name": "QA Engineer (Planning)",
+      "phase": 3,
+      "parallel_group": "parallel-phase-3",
+      "model": "claude-sonnet-4-6",
+      "skill": "qa-engineer",
+      "task_template": "You are in PLANNING MODE. Read artifacts/po/acceptance-criteria.md and artifacts/architect/api-contracts.yaml. Write failing tests. Save to tests/ folder. Create tests/run_tests.sh and tests/DEV_HANDOFF.md. Save test plan to artifacts/qa/test-plan.md. Save handoff to handoffs/qa-to-dev.md.",
+      "trigger": "on_artifact",
+      "wait_for": ["handoffs/architect-to-qa.md"],
+      "produces": [
+        "artifacts/qa/test-plan.md",
+        "tests/run_tests.sh",
+        "tests/DEV_HANDOFF.md",
+        "handoffs/qa-to-dev.md"
+      ],
+      "on_blocked": "surface_to_user"
+    },
+
+    {
+      "id": "ws-dev-setup",
+      "name": "Developer (Setup)",
+      "phase": 3,
+      "parallel_group": "parallel-phase-3",
+      "model": "gemini-3-flash",
+      "skill": "full-stack-developer",
+      "task_template": "You are in SETUP MODE. Read artifacts/architect/architecture-decision-record.md and artifacts/architect/task-breakdown.md. Create the project structure, placeholder files, and install dependencies. Do NOT write implementation code. Save handoff to handoffs/dev-setup-complete.md.",
+      "trigger": "on_artifact",
+      "wait_for": ["handoffs/architect-to-dev.md"],
+      "produces": ["handoffs/dev-setup-complete.md"],
+      "on_blocked": "surface_to_user"
+    },
+
+    {
+      "id": "ws-developer",
+      "name": "Developer (Implementation)",
+      "phase": 4,
+      "parallel_group": null,
+      "model": "claude-sonnet-4-6",
+      "skill": "full-stack-developer",
+      "task_template": "You are in IMPLEMENTATION MODE. Read tests/DEV_HANDOFF.md first. Then implement all tasks from artifacts/architect/task-breakdown.md. Make all failing tests pass. Do NOT modify test files. Write artifacts/dev/implementation-notes.md. Save handoff to handoffs/dev-to-qa.md.",
+      "trigger": "on_artifact",
+      "wait_for": ["handoffs/qa-to-dev.md", "handoffs/dev-setup-complete.md"],
+      "produces": ["src/", "artifacts/dev/implementation-notes.md", "handoffs/dev-to-qa.md"],
+      "on_blocked": "surface_to_user"
+    },
+
+    {
+      "id": "ws-qa-verification",
+      "name": "QA Engineer (Verification)",
+      "phase": 5,
+      "parallel_group": null,
+      "model": "gemini-3-flash",
+      "skill": "qa-engineer",
+      "task_template": "You are in VERIFICATION MODE. Run ./tests/run_tests.sh against the implementation. If all tests pass: produce artifacts/qa/sign-off.md and handoffs/qa-signoff.md with STATUS: COMPLETE. If tests fail: produce artifacts/qa/bug-report.md and handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED.",
+      "trigger": "on_artifact",
+      "wait_for": ["handoffs/dev-to-qa.md"],
+      "produces": ["artifacts/qa/test-results.md"],
+      "on_blocked": "route_to_ws-developer",
+      "on_complete": "mission_complete"
+    }
+  ],
+
+  "flow_rules": {
+    "po_architect_max_cycles": 3,
+    "qa_dev_max_cycles": 5,
+    "parallel_groups": {
+      "parallel-phase-3": {
+        "workspaces": ["ws-qa-planning", "ws-dev-setup"],
+        "wait_for_all": true,
+        "description": "QA writes tests and Dev sets up project simultaneously"
+      }
+    }
+  },
+
+  "model_assignments": {
+    "_comment": "Recommended model assignments. Adjust based on your budget and requirements.",
+    "product_owner": "gemini-3.1-pro",
+    "software_architect": "gemini-3.1-pro-high",
+    "qa_planning": "claude-sonnet-4-6",
+    "dev_setup": "gemini-3-flash",
+    "developer": "claude-sonnet-4-6",
+    "qa_verification": "gemini-3-flash"
+  }
+}
