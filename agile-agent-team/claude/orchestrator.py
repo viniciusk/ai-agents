@@ -610,26 +610,30 @@ async def orchestrate(business_goal: str, project_path: Path,
 
         if resume_from == "po":
             print(f"\n📌 Phase 1: Product Owner (cycle {cycle + 1})")
+            print()  # blank line before agent work
             await run_product_owner(mission_dir, project_context, architect_feedback)
         else:
             print(f"\n⏩ Phase 1: Product Owner — skipped (already complete)")
 
+        print()  # blank line between phases
         if resume_from in ("po", "architect"):
-            print(f"\n📌 Phase 2: Software Architect (cycle {cycle + 1})")
+            print(f"📌 Phase 2: Software Architect (cycle {cycle + 1})")
+            print()  # blank line before agent work
             await run_architect(mission_dir, project_context)
             resume_from = "po"  # re-enable both phases on subsequent cycles
         else:
-            print(f"\n⏩ Phase 2: Software Architect — skipped (already complete)")
+            print(f"⏩ Phase 2: Software Architect — skipped (already complete)")
 
+        print()  # blank line before status check
         status = read_handoff_status(mission_dir, "architect-blocks-po.md")
         if status == "BLOCKED":
-            print(f"\n⚠️  Architect needs PO clarification — cycling back...")
+            print(f"⚠️  Architect needs PO clarification — cycling back...")
             architect_feedback = (
                 mission_dir / "handoffs" / "architect-blocks-po.md"
             ).read_text()
             resume_from = "po"
         else:
-            print(f"\n✅ Architecture approved.")
+            print(f"✅ Architecture approved.")
             break
     else:
         print(f"\n❌ Max PO-Architect cycles reached.")
@@ -637,28 +641,33 @@ async def orchestrate(business_goal: str, project_path: Path,
         return
 
     # ── Phase 3: Parallel — QA Planning + Dev Setup ──────────────────
+    print()  # blank line before Phase 3
     handoffs = mission_dir / "handoffs"
     qa_done  = (handoffs / "qa-to-dev.md").exists()
     dev_done = (handoffs / "dev-setup-complete.md").exists()
 
     if qa_done and dev_done:
-        print(f"\n⏩ Phase 3: QA Planning + Dev Setup — skipped (already complete)")
+        print(f"⏩ Phase 3: QA Planning + Dev Setup — skipped (already complete)")
     else:
         tasks = []
         if not qa_done:
             tasks.append(run_qa_planning(mission_dir, project_context))
         else:
-            print(f"\n⏩ Phase 3a: QA Planning — skipped")
+            print(f"⏩ Phase 3a: QA Planning — skipped")
         if not dev_done:
             tasks.append(run_dev_setup(mission_dir, project_context))
         else:
-            print(f"\n⏩ Phase 3b: Dev Setup — skipped")
+            print(f"⏩ Phase 3b: Dev Setup — skipped")
 
-        print(f"\n📌 Phase 3: Running {len(tasks)} remaining task(s) in parallel")
-        await asyncio.gather(*tasks)
+        if tasks:
+            print()  # blank line before parallel execution
+            print(f"📌 Phase 3: Running {len(tasks)} remaining task(s) in parallel")
+            print()  # blank line before agent work
+            await asyncio.gather(*tasks)
         print(f"\n✅ Tests written. Project structure ready.")
 
     # ── Phase 4 + 5: Dev → QA loop ───────────────────────────────────
+    print()  # blank line before Phase 4
     bug_report = ""
     # Check for an existing bug report if resuming mid-cycle
     existing_bug = mission_dir / "artifacts" / "qa" / "bug-report.md"
@@ -669,18 +678,22 @@ async def orchestrate(business_goal: str, project_path: Path,
         dev_handoff = handoffs / "dev-to-qa.md"
 
         if resume_from == "qa-verification" and dev_handoff.exists():
-            print(f"\n⏩ Phase 4: Implementation — skipped (already complete)")
+            print(f"⏩ Phase 4: Implementation — skipped (already complete)")
             resume_from = "done"  # don't skip again on next cycle
         else:
-            print(f"\n📌 Phase 4: Implementation (cycle {cycle + 1})")
+            print(f"📌 Phase 4: Implementation (cycle {cycle + 1})")
+            print()  # blank line before agent work
             await run_developer(mission_dir, project_context, bug_report)
 
-        print(f"\n📌 Phase 5: QA Verification (cycle {cycle + 1})")
+        print()  # blank line between phases
+        print(f"📌 Phase 5: QA Verification (cycle {cycle + 1})")
+        print()  # blank line before agent work
         await run_qa_verification(mission_dir, project_context)
 
+        print()  # blank line before result check
         status = read_handoff_status(mission_dir, "qa-signoff.md")
         if status == "COMPLETE":
-            print(f"\n🎉 QA SIGN-OFF! Feature complete.")
+            print(f"🎉 QA SIGN-OFF! Feature complete.")
             break
 
         print(f"\n⚠️  QA found issues — sending to Dev for fixes...")
