@@ -365,29 +365,39 @@ def read_handoff_status(mission_dir: Path, handoff_filename: str) -> str:
 async def run_product_owner(mission_dir: Path, project_context: str,
                              architect_feedback: str = "") -> str:
     mission_brief = (mission_dir / "mission.md").read_text()
+    feedback_block = f"ARCHITECT FEEDBACK (respond to these before proceeding):\n{architect_feedback}" if architect_feedback else ""
+    # Explicit absolute paths — prevents agents writing to project root
+    po_dir       = mission_dir / "artifacts" / "po"
+    handoffs_dir = mission_dir / "handoffs"
     prompt = f"""
 MISSION BRIEF:
 {mission_brief}
 
-{f"ARCHITECT FEEDBACK (respond to these before proceeding):\n{architect_feedback}" if architect_feedback else ""}
+{feedback_block}
 
 Follow your skill instructions:
 1. Analyze the business goal in the context of the existing project
 2. Surface any ambiguities (use AskUserQuestion if needed)
 3. Write user stories and acceptance criteria
-4. Save all artifacts to artifacts/po/
-5. Save handoff to handoffs/po-to-architect.md
+4. Save ALL artifacts to: {po_dir}/
+   - {po_dir}/user-stories.md
+   - {po_dir}/acceptance-criteria.md
+   - {po_dir}/out-of-scope.md
+5. Save handoff to: {handoffs_dir}/po-to-architect.md
 """
     return await run_agent("product-owner", prompt, mission_dir, project_context)
 
 
 async def run_architect(mission_dir: Path, project_context: str) -> str:
-    prompt = """
-Read:
-  - artifacts/po/user-stories.md
-  - artifacts/po/acceptance-criteria.md
-  - artifacts/po/out-of-scope.md
-  - handoffs/po-to-architect.md
+    po_dir        = mission_dir / "artifacts" / "po"
+    arch_dir      = mission_dir / "artifacts" / "architect"
+    handoffs_dir  = mission_dir / "handoffs"
+    prompt = f"""
+Read these files:
+  - {po_dir}/user-stories.md
+  - {po_dir}/acceptance-criteria.md
+  - {po_dir}/out-of-scope.md
+  - {handoffs_dir}/po-to-architect.md
 
 The PROJECT CONTEXT above tells you the existing tech stack and patterns.
 Design your architecture to fit the existing project — don't introduce
@@ -395,56 +405,75 @@ new frameworks or patterns unless the existing ones are insufficient.
 
 Follow your skill instructions:
 1. Review PO artifacts for technical feasibility
-2. If unclear: write handoffs/architect-blocks-po.md with STATUS: BLOCKED, then stop
+2. If unclear: write {handoffs_dir}/architect-blocks-po.md with STATUS: BLOCKED, then stop
 3. If sound: produce architecture fitting the existing codebase
-4. Save artifacts to artifacts/architect/
-5. Save handoffs/architect-to-qa.md and handoffs/architect-to-dev.md
+4. Save ALL artifacts to: {arch_dir}/
+   - {arch_dir}/architecture-decision-record.md
+   - {arch_dir}/task-breakdown.md
+   - {arch_dir}/api-contracts.yaml
+   - {arch_dir}/non-functional-requirements.md
+5. Save handoffs to:
+   - {handoffs_dir}/architect-to-qa.md
+   - {handoffs_dir}/architect-to-dev.md
 """
     return await run_agent("software-architect", prompt, mission_dir, project_context)
 
 
 async def run_qa_planning(mission_dir: Path, project_context: str) -> str:
-    prompt = """
+    po_dir       = mission_dir / "artifacts" / "po"
+    arch_dir     = mission_dir / "artifacts" / "architect"
+    qa_dir       = mission_dir / "artifacts" / "qa"
+    tests_dir    = mission_dir / "tests"
+    handoffs_dir = mission_dir / "handoffs"
+    prompt = f"""
 You are in PLANNING MODE.
 
 The PROJECT CONTEXT above tells you the testing framework already in use.
 Use the same framework — don't introduce a new test runner.
 
-Read:
-  - artifacts/po/acceptance-criteria.md
-  - artifacts/architect/architecture-decision-record.md
-  - artifacts/architect/api-contracts.yaml
-  - artifacts/architect/task-breakdown.md
+Read these files:
+  - {po_dir}/acceptance-criteria.md
+  - {arch_dir}/architecture-decision-record.md
+  - {arch_dir}/api-contracts.yaml
+  - {arch_dir}/task-breakdown.md
+  - {handoffs_dir}/architect-to-qa.md
 
 Follow your skill instructions:
 1. Write failing tests using the project's existing test framework
-2. Save tests to tests/unit/, tests/integration/, tests/e2e/
-3. Create tests/run_tests.sh consistent with the project's existing test command
-4. Create tests/DEV_HANDOFF.md
-5. Save test plan to artifacts/qa/test-plan.md
-6. Save handoff to handoffs/qa-to-dev.md
+2. Save tests to:
+   - {tests_dir}/unit/
+   - {tests_dir}/integration/
+   - {tests_dir}/e2e/
+3. Create {tests_dir}/run_tests.sh  (single command to run all tests)
+4. Create {tests_dir}/DEV_HANDOFF.md  (setup and ordering instructions for Dev)
+5. Save test plan to: {qa_dir}/test-plan.md
+6. Save handoff to: {handoffs_dir}/qa-to-dev.md
 """
     return await run_agent("qa-engineer", prompt, mission_dir, project_context,
                            model_key="qa-planning")
 
 
 async def run_dev_setup(mission_dir: Path, project_context: str) -> str:
-    prompt = """
+    arch_dir     = mission_dir / "artifacts" / "architect"
+    handoffs_dir = mission_dir / "handoffs"
+    prompt = f"""
 You are in SETUP MODE. Create the project structure per the architecture.
 Do NOT write implementation code yet.
 
 The PROJECT CONTEXT above shows the existing project structure.
-New files should follow the same conventions and live in the correct locations.
+New source files should follow the same conventions and live in the correct
+locations WITHIN THE ACTUAL PROJECT (not inside the mission folder).
 
-Read:
-  - artifacts/architect/architecture-decision-record.md
-  - artifacts/architect/task-breakdown.md
+Read these files:
+  - {arch_dir}/architecture-decision-record.md
+  - {arch_dir}/task-breakdown.md
+  - {handoffs_dir}/architect-to-dev.md
 
 Then:
-1. Create placeholder files in the correct locations within the existing project
-2. Install any new dependencies (add to the existing requirements.txt / package.json)
+1. Create placeholder source files in the project (matching existing structure)
+2. Install any new dependencies into the project's existing dependency file
 3. Verify no dependency conflicts
-4. Save handoff to handoffs/dev-setup-complete.md
+4. Save handoff to: {handoffs_dir}/dev-setup-complete.md
 """
     return await run_agent("full-stack-developer", prompt, mission_dir, project_context,
                            model_key="dev-setup")
@@ -452,44 +481,57 @@ Then:
 
 async def run_developer(mission_dir: Path, project_context: str,
                          bug_report: str = "") -> str:
+    arch_dir     = mission_dir / "artifacts" / "architect"
+    dev_dir      = mission_dir / "artifacts" / "dev"
+    tests_dir    = mission_dir / "tests"
+    handoffs_dir = mission_dir / "handoffs"
+    bug_block    = f"BUG REPORT FROM QA (fix these before anything else):\n{bug_report}" if bug_report else ""
     prompt = f"""
 You are in IMPLEMENTATION MODE. Make all failing tests pass.
 
 The PROJECT CONTEXT above shows conventions to follow (naming, error handling,
 logging, etc.) — match the existing codebase style.
 
-Read first:
-  - tests/DEV_HANDOFF.md
-  - artifacts/architect/task-breakdown.md
-  - artifacts/architect/architecture-decision-record.md
+Read these files first:
+  - {tests_dir}/DEV_HANDOFF.md  (setup and ordering instructions from QA)
+  - {arch_dir}/task-breakdown.md
+  - {arch_dir}/architecture-decision-record.md
 
-{f"BUG REPORT FROM QA (fix these before anything else):\n{bug_report}" if bug_report else ""}
+{bug_block}
 
 Then:
-1. Run ./tests/run_tests.sh to confirm all tests are failing
+1. Verify tests are failing: run {tests_dir}/run_tests.sh
 2. Implement tasks in order per the task breakdown
-3. Run tests after each task
-4. When all tests pass, write artifacts/dev/implementation-notes.md
-5. Save handoff to handoffs/dev-to-qa.md
+3. Run tests after each task to verify progress
+4. When all tests pass, write: {dev_dir}/implementation-notes.md
+5. Save handoff to: {handoffs_dir}/dev-to-qa.md
 """
     return await run_agent("full-stack-developer", prompt, mission_dir, project_context,
                            model_key="developer")
 
 
 async def run_qa_verification(mission_dir: Path, project_context: str) -> str:
-    prompt = """
+    dev_dir      = mission_dir / "artifacts" / "dev"
+    qa_dir       = mission_dir / "artifacts" / "qa"
+    tests_dir    = mission_dir / "tests"
+    handoffs_dir = mission_dir / "handoffs"
+    prompt = f"""
 You are in VERIFICATION MODE.
 
-Read:
-  - handoffs/dev-to-qa.md
-  - artifacts/dev/implementation-notes.md
+Read these files:
+  - {handoffs_dir}/dev-to-qa.md
+  - {dev_dir}/implementation-notes.md
 
 Then:
-1. Run ./tests/run_tests.sh (capture full output)
-2. If all pass: save artifacts/qa/test-results.md, artifacts/qa/sign-off.md,
-   and handoffs/qa-signoff.md with STATUS: COMPLETE
-3. If any fail: save artifacts/qa/test-results.md, artifacts/qa/bug-report.md,
-   and handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED
+1. Run the test suite: {tests_dir}/run_tests.sh  (capture full output)
+2. If ALL tests pass:
+   - Save {qa_dir}/test-results.md
+   - Save {qa_dir}/sign-off.md
+   - Save {handoffs_dir}/qa-signoff.md  with STATUS: COMPLETE
+3. If any tests fail:
+   - Save {qa_dir}/test-results.md
+   - Save {qa_dir}/bug-report.md  (actionable, per your skill instructions)
+   - Save {handoffs_dir}/qa-to-dev-cycle.md  with STATUS: BLOCKED
 """
     return await run_agent("qa-engineer", prompt, mission_dir, project_context,
                            model_key="qa-verification")
@@ -499,34 +541,85 @@ Then:
 # Main Orchestration Loop
 # ─────────────────────────────────────────────
 
+def detect_resume_phase(mission_dir: Path) -> str:
+    """
+    Inspect an existing mission folder and return the name of the first
+    incomplete phase. Used by --resume-mission to skip work already done.
+
+    Phase completion is detected by the presence of the handoff each phase
+    produces — if the handoff exists, that phase finished successfully.
+    """
+    handoffs = mission_dir / "handoffs"
+
+    if not (handoffs / "po-to-architect.md").exists():
+        return "po"
+    if not (handoffs / "architect-to-qa.md").exists():
+        return "architect"
+    qa_done  = (handoffs / "qa-to-dev.md").exists()
+    dev_done = (handoffs / "dev-setup-complete.md").exists()
+    if not qa_done or not dev_done:
+        return "parallel"
+    if not (handoffs / "dev-to-qa.md").exists():
+        return "developer"
+    if not (handoffs / "qa-signoff.md").exists():
+        return "qa-verification"
+    return "complete"
+
+
 async def orchestrate(business_goal: str, project_path: Path,
-                      force_refresh: bool = False):
+                      force_refresh: bool = False,
+                      resume_mission: Path | None = None):
     """
     Main orchestration function.
 
-    1. Load (or create) project context — cheap after first run
-    2. Run the agile agent workflow
-    3. Update project context with a mission summary — cheap incremental append
+    Pass resume_mission=<path> to continue a run that was interrupted
+    (e.g. by a credit limit hit). Completed phases are detected from
+    their handoff files and skipped automatically.
     """
 
-    print(f"\n🚀 Agile Agent Team")
-    print(f"📋 Goal: {business_goal}")
-    print(f"📂 Project: {project_path}\n")
+    # ── Resume or fresh start ────────────────────────────────────────
+    if resume_mission:
+        mission_dir = resume_mission.resolve()
+        if not mission_dir.exists():
+            print(f"❌ Mission folder not found: {mission_dir}")
+            return
+        resume_from = detect_resume_phase(mission_dir)
+        if resume_from == "complete":
+            print(f"✅ Mission already complete: {mission_dir}")
+            return
+        print(f"\n🔄 Resuming mission: {mission_dir.name}")
+        print(f"📂 Project: {project_path}")
+        print(f"⏩ Skipping to phase: {resume_from}\n")
+        # Read the goal from the mission brief so we don't need --goal-file again
+        mission_md = mission_dir / "mission.md"
+        if not business_goal and mission_md.exists():
+            business_goal = mission_md.read_text()
+    else:
+        resume_from = "po"
+        print(f"\n🚀 Agile Agent Team")
+        print(f"📋 Goal: {business_goal[:80]}{'...' if len(business_goal) > 80 else ''}")
+        print(f"📂 Project: {project_path}\n")
+        mission_dir = create_mission_folder(project_path, business_goal)
 
     # ── Load project context (cached after first run) ────────────────
     project_context = await get_project_context(project_path, force_refresh)
 
-    # ── Create mission folder ────────────────────────────────────────
-    mission_dir = create_mission_folder(project_path, business_goal)
-
     # ── Phase 1 + 2: PO → Architect loop ────────────────────────────
     architect_feedback = ""
     for cycle in range(MAX_PO_ARCHITECT_CYCLES):
-        print(f"\n📌 Phase 1: Product Owner (cycle {cycle + 1})")
-        await run_product_owner(mission_dir, project_context, architect_feedback)
 
-        print(f"\n📌 Phase 2: Software Architect (cycle {cycle + 1})")
-        await run_architect(mission_dir, project_context)
+        if resume_from == "po":
+            print(f"\n📌 Phase 1: Product Owner (cycle {cycle + 1})")
+            await run_product_owner(mission_dir, project_context, architect_feedback)
+        else:
+            print(f"\n⏩ Phase 1: Product Owner — skipped (already complete)")
+
+        if resume_from in ("po", "architect"):
+            print(f"\n📌 Phase 2: Software Architect (cycle {cycle + 1})")
+            await run_architect(mission_dir, project_context)
+            resume_from = "po"  # re-enable both phases on subsequent cycles
+        else:
+            print(f"\n⏩ Phase 2: Software Architect — skipped (already complete)")
 
         status = read_handoff_status(mission_dir, "architect-blocks-po.md")
         if status == "BLOCKED":
@@ -534,6 +627,7 @@ async def orchestrate(business_goal: str, project_path: Path,
             architect_feedback = (
                 mission_dir / "handoffs" / "architect-blocks-po.md"
             ).read_text()
+            resume_from = "po"
         else:
             print(f"\n✅ Architecture approved.")
             break
@@ -543,18 +637,43 @@ async def orchestrate(business_goal: str, project_path: Path,
         return
 
     # ── Phase 3: Parallel — QA Planning + Dev Setup ──────────────────
-    print(f"\n📌 Phase 3: QA Planning + Dev Setup (parallel)")
-    await asyncio.gather(
-        run_qa_planning(mission_dir, project_context),
-        run_dev_setup(mission_dir, project_context),
-    )
-    print(f"\n✅ Tests written. Project structure ready.")
+    handoffs = mission_dir / "handoffs"
+    qa_done  = (handoffs / "qa-to-dev.md").exists()
+    dev_done = (handoffs / "dev-setup-complete.md").exists()
+
+    if qa_done and dev_done:
+        print(f"\n⏩ Phase 3: QA Planning + Dev Setup — skipped (already complete)")
+    else:
+        tasks = []
+        if not qa_done:
+            tasks.append(run_qa_planning(mission_dir, project_context))
+        else:
+            print(f"\n⏩ Phase 3a: QA Planning — skipped")
+        if not dev_done:
+            tasks.append(run_dev_setup(mission_dir, project_context))
+        else:
+            print(f"\n⏩ Phase 3b: Dev Setup — skipped")
+
+        print(f"\n📌 Phase 3: Running {len(tasks)} remaining task(s) in parallel")
+        await asyncio.gather(*tasks)
+        print(f"\n✅ Tests written. Project structure ready.")
 
     # ── Phase 4 + 5: Dev → QA loop ───────────────────────────────────
     bug_report = ""
+    # Check for an existing bug report if resuming mid-cycle
+    existing_bug = mission_dir / "artifacts" / "qa" / "bug-report.md"
+    if existing_bug.exists():
+        bug_report = existing_bug.read_text()
+
     for cycle in range(MAX_QA_DEV_CYCLES):
-        print(f"\n📌 Phase 4: Implementation (cycle {cycle + 1})")
-        await run_developer(mission_dir, project_context, bug_report)
+        dev_handoff = handoffs / "dev-to-qa.md"
+
+        if resume_from == "qa-verification" and dev_handoff.exists():
+            print(f"\n⏩ Phase 4: Implementation — skipped (already complete)")
+            resume_from = "done"  # don't skip again on next cycle
+        else:
+            print(f"\n📌 Phase 4: Implementation (cycle {cycle + 1})")
+            await run_developer(mission_dir, project_context, bug_report)
 
         print(f"\n📌 Phase 5: QA Verification (cycle {cycle + 1})")
         await run_qa_verification(mission_dir, project_context)
@@ -574,7 +693,6 @@ async def orchestrate(business_goal: str, project_path: Path,
         return
 
     # ── Update project context with what was built ───────────────────
-    # This is a cheap append — no re-scan, no agent involved
     await update_project_context(project_path, business_goal)
 
     # ── Mission Complete ─────────────────────────────────────────────
@@ -597,10 +715,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Agile Agent Team — autonomous feature development"
     )
-    parser.add_argument(
+
+    goal_group = parser.add_mutually_exclusive_group(required=True)
+    goal_group.add_argument(
         "goal",
+        nargs="?",
         help='Business goal in quotes, e.g. "Add password reset via email"'
     )
+    goal_group.add_argument(
+        "--goal-file",
+        metavar="FILE",
+        help="Path to a file containing the business goal (supports .md, .txt, any text file)"
+    )
+
     parser.add_argument(
         "--project-path",
         default=".",
@@ -611,8 +738,44 @@ if __name__ == "__main__":
         action="store_true",
         help="Force a full project re-scan and overwrite project.config.md"
     )
+    parser.add_argument(
+        "--resume-mission",
+        metavar="MISSION_DIR",
+        help=(
+            "Resume an interrupted mission from where it left off. "
+            "Pass the path to the mission folder, e.g. "
+            ".agent-missions/mission-20260414-093417. "
+            "Completed phases are detected automatically and skipped."
+        )
+    )
 
     args = parser.parse_args()
+
+    # --resume-mission: goal is optional (read from mission.md if not given)
+    if args.resume_mission:
+        resume_path = Path(args.resume_mission)
+        business_goal = ""  # will be read from mission.md inside orchestrate()
+        if args.goal or args.goal_file:
+            # Allow overriding the goal on resume (e.g. to add feedback)
+            if args.goal_file:
+                goal_path = Path(args.goal_file)
+                if not goal_path.exists():
+                    print(f"❌ Goal file not found: {goal_path}")
+                    sys.exit(1)
+                business_goal = goal_path.read_text().strip()
+            else:
+                business_goal = args.goal
+    else:
+        resume_path = None
+        if args.goal_file:
+            goal_path = Path(args.goal_file)
+            if not goal_path.exists():
+                print(f"❌ Goal file not found: {goal_path}")
+                sys.exit(1)
+            business_goal = goal_path.read_text().strip()
+            print(f"📄 Goal loaded from: {goal_path} ({len(business_goal)} chars)")
+        else:
+            business_goal = args.goal
 
     project_path = Path(args.project_path).resolve()
     if not project_path.exists():
@@ -620,7 +783,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     asyncio.run(orchestrate(
-        business_goal=args.goal,
+        business_goal=business_goal,
         project_path=project_path,
         force_refresh=args.refresh_context,
+        resume_mission=resume_path,
     ))
