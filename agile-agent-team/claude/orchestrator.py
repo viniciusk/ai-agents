@@ -82,6 +82,9 @@ MODEL_CONFIG = {
 # The context file lives in the project root — created once, updated incrementally
 PROJECT_CONFIG_FILENAME = "project.config.md"
 
+# Set to True via --quiet flag — suppresses agent streaming output
+QUIET = False
+
 # Path to skill files — relative to this orchestrator script
 SKILLS_DIR = Path(__file__).parent / "skills"
 
@@ -310,6 +313,13 @@ async def run_agent(role: str, prompt: str, mission_dir: Path,
 PROJECT CONTEXT (from project.config.md — read-only reference):
 {project_context}
 
+⚠️  ABSOLUTE PATH RULE — THIS OVERRIDES YOUR SKILL INSTRUCTIONS:
+Your mission folder is: {mission_dir}
+ALL files you create MUST use the absolute paths given in YOUR TASK below.
+NEVER write to relative paths. If your skill says "artifacts/foo.md" or
+"handoffs/bar.md", ignore those relative forms and use the absolute path
+from the task instead. There are NO exceptions.
+
 ─────────────────────────────────────────────────────────────
 YOUR TASK:
 {prompt}
@@ -322,6 +332,7 @@ YOUR TASK:
     print(f"{'='*60}")
 
     result_text = ""
+    tool_calls = 0
     async for message in query(
         prompt=full_prompt,
         options=ClaudeAgentOptions(
@@ -332,12 +343,24 @@ YOUR TASK:
             permission_mode="acceptEdits",
         )
     ):
-        if hasattr(message, "content"):
-            for block in message.content:
-                if hasattr(block, "text"):
-                    print(block.text, end="", flush=True)
+        if QUIET:
+            # Quiet mode: single updating line showing tool call progress
+            if hasattr(message, "type") and message.type == "tool_use":
+                tool_calls += 1
+                tool_name = getattr(message, "name", "tool")
+                print(f"\r  {tool_calls} tool calls ({tool_name})    ",
+                      end="", flush=True)
+        else:
+            # Verbose mode (default): stream all agent output
+            if hasattr(message, "content"):
+                for block in message.content:
+                    if hasattr(block, "text"):
+                        print(block.text, end="", flush=True)
         if hasattr(message, "result"):
             result_text = message.result
+
+    if QUIET:
+        print(f"\r  ✓ done ({tool_calls} tool calls)          ")
 
     return result_text
 
@@ -538,6 +561,111 @@ Then:
 
 
 # ─────────────────────────────────────────────
+# Fix Mode
+# ─────────────────────────────────────────────
+
+# Valid phases the user can jump to with --from-phase.
+# Each entry: (phase_key, human label)
+FIX_PHASES = [
+    ("qa-planning",      "QA Planning"),
+    ("developer",        "Developer"),
+    ("qa-verification",  "QA Verification"),
+]
+FIX_PHASE_KEYS = [p[0] for p in FIX_PHASES]
+
+
+async def fix_mission(fix_description: str, mission_dir: Path,
+                      project_path: Path, from_phase: str) -> None:
+    """
+    Targeted fix mode: re-run a subset of phases on a completed mission
+    using a short fix description instead of the full original goal.
+
+    This is much cheaper than re-running the whole pipeline — use it when
+    the implementation has a bug, a test is wrong, or a specific phase
+    needs to be redone. PO and Architect phases are never re-run here
+    because the requirements and architecture are assumed to be correct.
+
+    from_phase options (each re-runs that phase and everything downstream):
+      "qa-planning"     → QA re-writes tests → Dev implements → QA verifies
+      "developer"       → Dev re-implements  → QA verifies          (default)
+      "qa-verification" → QA re-runs tests only
+    """
+    mission_dir = mission_dir.resolve()
+    if not mission_dir.exists():
+        print(f"❌ Mission folder not found: {mission_dir}")
+        return
+
+    if from_phase not in FIX_PHASE_KEYS:
+        print(f"❌ Unknown phase '{from_phase}'. Valid options: {FIX_PHASE_KEYS}")
+        return
+
+    print(f"\n🔧 Fix Mode")
+    print(f"📁 Mission:    {mission_dir.name}")
+    print(f"⏩ From phase: {from_phase}")
+    print(f"📝 Fix:        {fix_description[:80]}{'...' if len(fix_description) > 80 else ''}")
+    print(f"📂 Project:    {project_path}\n")
+
+    project_context = await get_project_context(project_path, force_refresh=False)
+
+    # Inject the fix note into the Developer and QA prompts by using the
+    # existing bug_report parameter — it floats to the top of the prompt.
+    fix_note = f"FIX REQUEST:\n{fix_description}"
+
+    # Determine which phases to run based on from_phase ordering
+    run_qa_plan = (from_phase == "qa-planning")
+    run_dev     = (from_phase in ("qa-planning", "developer"))
+    run_qa_ver  = True  # always verify at the end
+
+    if run_qa_plan:
+        print(f"\n📌 Re-running: QA Planning")
+        print()
+        await run_qa_planning(mission_dir, project_context)
+
+    if run_dev:
+        for cycle in range(MAX_QA_DEV_CYCLES):
+            print(f"\n📌 Re-running: Developer (cycle {cycle + 1})")
+            print()
+            # First cycle carries the fix note; subsequent cycles carry the
+            # latest bug report from this fix session if QA found new issues.
+            bug_input = fix_note if cycle == 0 else _read_latest_bug_report(mission_dir)
+            await run_developer(mission_dir, project_context, bug_report=bug_input)
+
+            print(f"\n📌 Re-running: QA Verification (cycle {cycle + 1})")
+            print()
+            await run_qa_verification(mission_dir, project_context)
+
+            qa_signoff = mission_dir / "handoffs" / "qa-signoff.md"
+            if qa_signoff.exists():
+                signoff_text = qa_signoff.read_text()
+                if "STATUS: COMPLETE" in signoff_text:
+                    break
+            print(f"\n⚠️  Tests still failing — sending back to developer (cycle {cycle + 2})")
+        else:
+            print(f"\n❌ Fix cycle limit ({MAX_QA_DEV_CYCLES}) reached without passing tests.")
+            return
+
+    elif run_qa_ver:
+        # from_phase == "qa-verification": just re-verify, no dev run
+        print(f"\n📌 Re-running: QA Verification")
+        print()
+        await run_qa_verification(mission_dir, project_context)
+
+    print(f"\n{'='*60}")
+    print(f"✅ FIX COMPLETE")
+    print(f"{'='*60}")
+    print(f"📁 Mission:  {mission_dir}")
+    print(f"✅ Sign-off: {mission_dir}/artifacts/qa/sign-off.md")
+
+
+def _read_latest_bug_report(mission_dir: Path) -> str:
+    """Return the content of the latest QA bug report, or empty string."""
+    bug_report = mission_dir / "artifacts" / "qa" / "bug-report.md"
+    if bug_report.exists():
+        return bug_report.read_text().strip()
+    return ""
+
+
+# ─────────────────────────────────────────────
 # Main Orchestration Loop
 # ─────────────────────────────────────────────
 
@@ -595,6 +723,25 @@ async def orchestrate(business_goal: str, project_path: Path,
         if not business_goal and mission_md.exists():
             business_goal = mission_md.read_text()
     else:
+        # ── Check for incomplete missions before starting fresh ───────
+        missions_root = project_path / ".agent-missions"
+        if missions_root.exists():
+            incomplete = []
+            for folder in sorted(missions_root.iterdir()):
+                if folder.is_dir():
+                    phase = detect_resume_phase(folder)
+                    if phase != "complete":
+                        incomplete.append((folder, phase))
+            if incomplete:
+                print("\n⚠️  Incomplete mission(s) detected:")
+                for folder, phase in incomplete:
+                    print(f"   {folder.name}  (next phase: {phase})")
+                print("\nTo resume one of these instead of starting fresh, run:")
+                for folder, phase in incomplete:
+                    print(f"   python orchestrator.py --resume-mission .agent-missions/{folder.name}")
+                print("\nStarting a fresh mission anyway in 5 seconds… (Ctrl-C to abort)")
+                import time; time.sleep(5)
+
         resume_from = "po"
         print(f"\n🚀 Agile Agent Team")
         print(f"📋 Goal: {business_goal[:80]}{'...' if len(business_goal) > 80 else ''}")
@@ -726,10 +873,37 @@ async def orchestrate(business_goal: str, project_path: Path,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Agile Agent Team — autonomous feature development"
+        description="Agile Agent Team — autonomous feature development",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Modes:
+  Full mission (default):
+    python orchestrator.py "Add password reset via email"
+    python orchestrator.py --goal-file feature.md
+
+  Resume interrupted mission:
+    python orchestrator.py --resume-mission .agent-missions/mission-20260414-093417
+
+  Fix mode — re-run specific phases on a completed mission (MUCH cheaper):
+    python orchestrator.py --fix "Token not invalidated after use" \\
+                           --mission .agent-missions/mission-20260414-093417
+    python orchestrator.py --fix "Tests for edge cases are missing" \\
+                           --mission .agent-missions/mission-20260414-093417 \\
+                           --from-phase qa-planning
+
+  Fix from a file (for longer bug descriptions):
+    python orchestrator.py --fix-file my-bug-report.md \\
+                           --mission .agent-missions/mission-20260414-093417
+
+  --from-phase options (default: developer):
+    developer        Re-run Dev → QA verify
+    qa-planning      Re-run QA plan → Dev → QA verify
+    qa-verification  Re-run QA verify only
+"""
     )
 
-    goal_group = parser.add_mutually_exclusive_group(required=True)
+    # ── Goal input (required for full mission, not for fix/resume) ───
+    goal_group = parser.add_mutually_exclusive_group()
     goal_group.add_argument(
         "goal",
         nargs="?",
@@ -738,9 +912,35 @@ if __name__ == "__main__":
     goal_group.add_argument(
         "--goal-file",
         metavar="FILE",
-        help="Path to a file containing the business goal (supports .md, .txt, any text file)"
+        help="Path to a file containing the business goal"
     )
 
+    # ── Fix mode ─────────────────────────────────────────────────────
+    fix_group = parser.add_mutually_exclusive_group()
+    fix_group.add_argument(
+        "--fix",
+        metavar="DESCRIPTION",
+        help="Short description of what to fix — re-runs only the affected phases"
+    )
+    fix_group.add_argument(
+        "--fix-file",
+        metavar="FILE",
+        help="Path to a file containing the fix description (for longer bug reports)"
+    )
+    parser.add_argument(
+        "--mission",
+        metavar="MISSION_DIR",
+        help="Mission folder to apply --fix to, e.g. .agent-missions/mission-20260414-093417"
+    )
+    parser.add_argument(
+        "--from-phase",
+        metavar="PHASE",
+        default="developer",
+        choices=FIX_PHASE_KEYS,
+        help=f"Which phase to start from in fix mode. Options: {FIX_PHASE_KEYS} (default: developer)"
+    )
+
+    # ── Shared flags ─────────────────────────────────────────────────
     parser.add_argument(
         "--project-path",
         default=".",
@@ -752,24 +952,61 @@ if __name__ == "__main__":
         help="Force a full project re-scan and overwrite project.config.md"
     )
     parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress agent streaming output — shows only phase headers and tool call counts"
+    )
+    parser.add_argument(
         "--resume-mission",
         metavar="MISSION_DIR",
         help=(
             "Resume an interrupted mission from where it left off. "
             "Pass the path to the mission folder, e.g. "
-            ".agent-missions/mission-20260414-093417. "
-            "Completed phases are detected automatically and skipped."
+            ".agent-missions/mission-20260414-093417."
         )
     )
 
     args = parser.parse_args()
 
-    # --resume-mission: goal is optional (read from mission.md if not given)
+    # Apply quiet mode globally — read by run_agent via the module-level flag
+    if args.quiet:
+        QUIET = True
+
+    project_path = Path(args.project_path).resolve()
+    if not project_path.exists():
+        print(f"❌ Project path not found: {project_path}")
+        sys.exit(1)
+
+    # ── Fix mode ─────────────────────────────────────────────────────
+    if args.fix or args.fix_file:
+        if not args.mission:
+            print("❌ --fix requires --mission to point at the mission folder to fix.")
+            print("   Example: --mission .agent-missions/mission-20260414-093417")
+            sys.exit(1)
+
+        if args.fix_file:
+            fix_path = Path(args.fix_file)
+            if not fix_path.exists():
+                print(f"❌ Fix file not found: {fix_path}")
+                sys.exit(1)
+            fix_description = fix_path.read_text().strip()
+            print(f"📄 Fix loaded from: {fix_path} ({len(fix_description)} chars)")
+        else:
+            fix_description = args.fix
+
+        asyncio.run(fix_mission(
+            fix_description=fix_description,
+            mission_dir=Path(args.mission),
+            project_path=project_path,
+            from_phase=args.from_phase,
+        ))
+        sys.exit(0)
+
+    # ── Resume mode ───────────────────────────────────────────────────
     if args.resume_mission:
         resume_path = Path(args.resume_mission)
-        business_goal = ""  # will be read from mission.md inside orchestrate()
+        business_goal = ""  # read from mission.md inside orchestrate()
         if args.goal or args.goal_file:
-            # Allow overriding the goal on resume (e.g. to add feedback)
             if args.goal_file:
                 goal_path = Path(args.goal_file)
                 if not goal_path.exists():
@@ -779,7 +1016,12 @@ if __name__ == "__main__":
             else:
                 business_goal = args.goal
     else:
+        # ── Full mission mode ─────────────────────────────────────────
         resume_path = None
+        if not args.goal and not args.goal_file:
+            print("❌ Provide a goal: python orchestrator.py \"Your goal\" or --goal-file FILE")
+            print("   For a fix, use: --fix \"What to fix\" --mission MISSION_DIR")
+            sys.exit(1)
         if args.goal_file:
             goal_path = Path(args.goal_file)
             if not goal_path.exists():
@@ -789,11 +1031,6 @@ if __name__ == "__main__":
             print(f"📄 Goal loaded from: {goal_path} ({len(business_goal)} chars)")
         else:
             business_goal = args.goal
-
-    project_path = Path(args.project_path).resolve()
-    if not project_path.exists():
-        print(f"❌ Project path not found: {project_path}")
-        sys.exit(1)
 
     asyncio.run(orchestrate(
         business_goal=business_goal,

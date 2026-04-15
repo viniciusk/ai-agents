@@ -1,0 +1,123 @@
+# Fix Workflow
+# Trigger: /fix
+#
+# Re-runs only the affected phases on an existing completed mission.
+# Much cheaper than running the full pipeline — use this when:
+#   - The implementation has a bug  → from_phase: developer  (default)
+#   - Tests are wrong or missing    → from_phase: qa-planning
+#   - Just re-run verification      → from_phase: qa-verification
+#
+# Equivalent to:
+#   python orchestrator.py --fix "description" --mission .agent-missions/XYZ
+#   python orchestrator.py --fix "description" --mission XYZ --from-phase qa-planning
+#
+# Usage in Antigravity:
+#   /fix
+#   Antigravity will prompt for:
+#     1. fix_description — what to fix (keep it short and specific)
+#     2. from_phase      — where to re-enter the pipeline (default: developer)
+#
+# IMPORTANT: This workflow reuses artifacts from an existing mission.
+# Point it at the same mission folder where the original run wrote its artifacts.
+
+name: fix
+trigger: /fix
+description: >
+  Targeted fix — re-run specific phases without restarting the full pipeline.
+  Reuses existing ADR, tests, and task breakdown from the original mission.
+
+parameters:
+  - name: fix_description
+    required: true
+    prompt: "Describe the bug or what needs to be fixed (be specific — this goes directly to the agent):"
+
+  - name: from_phase
+    required: false
+    default: developer
+    options:
+      - developer        # Re-run Dev → QA verify  (default — implementation bug)
+      - qa-planning      # Re-run QA planning → Dev → QA verify  (tests need rewrite)
+      - qa-verification  # Re-run QA verify only  (Dev fixed it manually, need sign-off)
+    prompt: "Which phase to start from? (default: developer)"
+
+flow:
+  max_qa_dev_cycles: 5
+
+steps:
+
+  # ── Optional: QA re-plans tests ──────────────────────────────────────
+  # Only runs when from_phase == "qa-planning"
+  - id: qa-planning
+    agent: qa
+    model: claude-sonnet-4-6
+    mode: sequential
+    condition: from_phase == "qa-planning"
+    task: |
+      You are in PLANNING MODE — rewriting or adding tests for a fix.
+
+      FIX REQUEST:
+      {fix_description}
+
+      Read the existing:
+        - artifacts/po/acceptance-criteria.md
+        - artifacts/architect/api-contracts.yaml
+        - artifacts/architect/task-breakdown.md
+
+      Rewrite or add failing tests as needed.
+      Save to: tests/  (unit/, integration/, e2e/)
+      Update: tests/DEV_HANDOFF.md
+      Save updated test plan to: artifacts/qa/test-plan.md
+      Save handoff to: handoffs/qa-to-dev.md
+    produces:
+      - tests/
+      - handoffs/qa-to-dev.md
+    on_blocked: surface_to_user
+
+  # ── Developer implements the fix ─────────────────────────────────────
+  # Runs when from_phase is "developer" or "qa-planning"
+  - id: developer
+    agent: developer
+    model: claude-sonnet-4-6
+    mode: sequential
+    condition: from_phase in ["developer", "qa-planning"]
+    task: |
+      You are in IMPLEMENTATION MODE.
+
+      FIX REQUEST (address this specifically):
+      {fix_description}
+
+      Read first:
+        - tests/DEV_HANDOFF.md
+        - artifacts/architect/task-breakdown.md
+        - artifacts/architect/architecture-decision-record.md
+
+      Run tests/run_tests.sh to see the current state.
+      Fix the issue described above. Make all tests pass.
+      Do NOT modify any test files.
+      Write: artifacts/dev/implementation-notes.md
+      Save handoff to: handoffs/dev-to-qa.md
+    produces:
+      - artifacts/dev/implementation-notes.md
+      - handoffs/dev-to-qa.md
+    on_blocked: surface_to_user
+
+  # ── QA verifies the fix ──────────────────────────────────────────────
+  # Always runs — it's the final gate regardless of from_phase
+  - id: qa-verification
+    agent: qa
+    model: gemini-3-flash
+    mode: sequential
+    task: |
+      You are in VERIFICATION MODE.
+      Read handoffs/dev-to-qa.md and artifacts/dev/implementation-notes.md.
+      Run: tests/run_tests.sh  (capture full output)
+      If ALL tests pass:
+        - Save artifacts/qa/test-results.md
+        - Save artifacts/qa/sign-off.md
+        - Save handoffs/qa-signoff.md with STATUS: COMPLETE
+      If any tests fail:
+        - Save artifacts/qa/test-results.md
+        - Save artifacts/qa/bug-report.md  (expected vs actual, which test, which AC)
+        - Save handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED
+    on_blocked: route_to:developer
+    on_complete: mission_complete

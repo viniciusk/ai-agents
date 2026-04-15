@@ -1,0 +1,150 @@
+# Full Mission Workflow
+# Trigger: /mission
+#
+# Runs the complete agile pipeline:
+#   PO → Architect → (QA Planning + Dev Setup in parallel) → Dev → QA Verify
+#
+# Equivalent to: python orchestrator.py --goal-file feature.md
+#
+# Usage in Antigravity:
+#   /mission
+#   When prompted, paste or reference your business goal.
+
+name: full-mission
+trigger: /mission
+description: >
+  Full agile pipeline — Product Owner writes stories, Architect designs the
+  system, QA and Dev scaffold in parallel, Dev implements, QA verifies.
+
+flow:
+  max_po_architect_cycles: 3   # Architect can push back to PO up to 3 times
+  max_qa_dev_cycles: 5         # QA can send bugs back to Dev up to 5 times
+
+steps:
+
+  # ── Phase 1: Product Owner ──────────────────────────────────────────
+  - id: product-owner
+    agent: po
+    model: gemini-3.1-pro
+    mode: sequential
+    task: |
+      Read the mission brief in mission.md.
+      Follow your skill instructions to produce user stories and acceptance criteria.
+      Save ALL artifacts to: artifacts/po/
+      Save handoff to: handoffs/po-to-architect.md
+    wait_for: []
+    produces:
+      - artifacts/po/user-stories.md
+      - artifacts/po/acceptance-criteria.md
+      - handoffs/po-to-architect.md
+    on_blocked: surface_to_user
+
+  # ── Phase 2: Software Architect ─────────────────────────────────────
+  - id: architect
+    agent: architect
+    model: gemini-3.1-pro-high
+    mode: sequential
+    task: |
+      Read all PO artifacts in artifacts/po/ and handoffs/po-to-architect.md.
+      Follow your skill instructions to design the architecture.
+      Save artifacts to: artifacts/architect/
+      Save handoffs to: handoffs/architect-to-qa.md and handoffs/architect-to-dev.md
+    wait_for:
+      - handoffs/po-to-architect.md
+    produces:
+      - artifacts/architect/architecture-decision-record.md
+      - artifacts/architect/api-contracts.yaml
+      - artifacts/architect/task-breakdown.md
+      - handoffs/architect-to-qa.md
+      - handoffs/architect-to-dev.md
+    on_blocked: route_to:product-owner   # Architect pushes back → PO rewrites
+
+  # ── Phase 3 (parallel): QA Planning + Dev Setup ─────────────────────
+  # Both workspaces start simultaneously once the Architect handoffs exist.
+
+  - id: qa-planning
+    agent: qa
+    model: claude-sonnet-4-6
+    mode: parallel
+    parallel_group: phase-3
+    task: |
+      You are in PLANNING MODE.
+      Read artifacts/po/acceptance-criteria.md and artifacts/architect/api-contracts.yaml.
+      Write failing tests for all acceptance criteria.
+      Save to: tests/  (unit/, integration/, e2e/)
+      Create: tests/run_tests.sh and tests/DEV_HANDOFF.md
+      Save test plan to: artifacts/qa/test-plan.md
+      Save handoff to: handoffs/qa-to-dev.md
+    wait_for:
+      - handoffs/architect-to-qa.md
+    produces:
+      - artifacts/qa/test-plan.md
+      - tests/run_tests.sh
+      - tests/DEV_HANDOFF.md
+      - handoffs/qa-to-dev.md
+    on_blocked: surface_to_user
+
+  - id: dev-setup
+    agent: developer
+    model: gemini-3-flash
+    mode: parallel
+    parallel_group: phase-3
+    task: |
+      You are in SETUP MODE.
+      Read artifacts/architect/architecture-decision-record.md and
+      artifacts/architect/task-breakdown.md.
+      Create the project directory structure and placeholder files.
+      Install dependencies. Do NOT write any implementation code.
+      Save handoff to: handoffs/dev-setup-complete.md
+    wait_for:
+      - handoffs/architect-to-dev.md
+    produces:
+      - handoffs/dev-setup-complete.md
+    on_blocked: surface_to_user
+
+  # ── Phase 4: Developer (Implementation) ─────────────────────────────
+  - id: developer
+    agent: developer
+    model: claude-sonnet-4-6
+    mode: sequential
+    task: |
+      You are in IMPLEMENTATION MODE.
+      Read tests/DEV_HANDOFF.md first, then artifacts/architect/task-breakdown.md
+      and artifacts/architect/architecture-decision-record.md.
+      Run tests/run_tests.sh — confirm all failing.
+      Implement tasks in order. Run tests after each task.
+      When all tests pass:
+        - Write artifacts/dev/implementation-notes.md
+        - Save handoff to: handoffs/dev-to-qa.md
+      Do NOT modify any test files.
+    wait_for:
+      - handoffs/qa-to-dev.md
+      - handoffs/dev-setup-complete.md
+    produces:
+      - artifacts/dev/implementation-notes.md
+      - handoffs/dev-to-qa.md
+    on_blocked: surface_to_user
+
+  # ── Phase 5: QA Verification ─────────────────────────────────────────
+  - id: qa-verification
+    agent: qa
+    model: gemini-3-flash
+    mode: sequential
+    task: |
+      You are in VERIFICATION MODE.
+      Read handoffs/dev-to-qa.md and artifacts/dev/implementation-notes.md.
+      Run: tests/run_tests.sh  (capture full output)
+      If ALL tests pass:
+        - Save artifacts/qa/test-results.md
+        - Save artifacts/qa/sign-off.md
+        - Save handoffs/qa-signoff.md with STATUS: COMPLETE
+      If any tests fail:
+        - Save artifacts/qa/test-results.md
+        - Save artifacts/qa/bug-report.md  (actionable: expected vs actual, which test, which AC)
+        - Save handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED
+    wait_for:
+      - handoffs/dev-to-qa.md
+    produces:
+      - artifacts/qa/test-results.md
+    on_blocked: route_to:developer   # QA found bugs → loop back to Dev
+    on_complete: mission_complete
