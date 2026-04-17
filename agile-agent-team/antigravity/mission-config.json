@@ -1,13 +1,15 @@
 {
   "_comment": "Agile Agent Team — Antigravity Mission Configuration (Squad Template)",
-  "_version": "1.0",
-  "_description": "Reusable mission template for the agile agent team. Load this in Antigravity Manager View to pre-configure all four workspaces.",
+  "_version": "1.1",
+  "_description": "Reference template describing the six workspaces that the /mission workflow dispatches. Antigravity does not load this file directly — the operational source of truth is .agent/workflows/full-mission.md. Keep this file in sync when you change the workflow so it stays a useful blueprint.",
+  "_path_convention": "All per-mission paths are rooted at session_folder (.agent-missions/mission-{timestamp}/). The task_template fields below use explicit .agent-missions/{MISSION_ID}/... paths so sub-agents never have to guess the working directory.",
 
   "mission": {
     "name": "Agile Agent Team Mission",
     "description": "Replace this with your business goal before launching.",
-    "session_folder": "sessions/mission-{timestamp}",
+    "session_folder": ".agent-missions/mission-{timestamp}",
     "artifact_structure": {
+      "brief": "mission.md",
       "handoffs": "handoffs/",
       "po_artifacts": "artifacts/po/",
       "architect_artifacts": "artifacts/architect/",
@@ -25,11 +27,15 @@
       "phase": 1,
       "parallel_group": null,
       "model": "gemini-3.1-pro",
-      "skill": "product-owner",
-      "task_template": "MISSION BRIEF is in mission.md. Read it. Follow your skill instructions to produce user stories and acceptance criteria. Save all artifacts to artifacts/po/. Save handoff to handoffs/po-to-architect.md.",
+      "skill": "po",
+      "task_template": "Read the mission brief in .agent-missions/{MISSION_ID}/mission.md. Follow your skill to produce user stories and acceptance criteria. Save all artifacts to .agent-missions/{MISSION_ID}/artifacts/po/. Save the handoff to .agent-missions/{MISSION_ID}/handoffs/po-to-architect.md.",
       "trigger": "manual",
-      "wait_for": [],
-      "produces": ["handoffs/po-to-architect.md", "artifacts/po/"],
+      "wait_for": [".agent-missions/{MISSION_ID}/mission.md"],
+      "produces": [
+        ".agent-missions/{MISSION_ID}/artifacts/po/user-stories.md",
+        ".agent-missions/{MISSION_ID}/artifacts/po/acceptance-criteria.md",
+        ".agent-missions/{MISSION_ID}/handoffs/po-to-architect.md"
+      ],
       "on_blocked": "surface_to_user"
     },
 
@@ -39,16 +45,16 @@
       "phase": 2,
       "parallel_group": null,
       "model": "gemini-3.1-pro-high",
-      "skill": "software-architect",
-      "task_template": "Read all PO artifacts in artifacts/po/ and handoffs/po-to-architect.md. Follow your skill instructions to design the architecture. Save artifacts to artifacts/architect/. Save handoffs/architect-to-qa.md and handoffs/architect-to-dev.md.",
+      "skill": "architect",
+      "task_template": "Read all PO artifacts in .agent-missions/{MISSION_ID}/artifacts/po/ and the handoff in .agent-missions/{MISSION_ID}/handoffs/po-to-architect.md. Follow your skill to design the architecture. Save artifacts to .agent-missions/{MISSION_ID}/artifacts/architect/. Save both handoffs: .agent-missions/{MISSION_ID}/handoffs/architect-to-qa.md and .agent-missions/{MISSION_ID}/handoffs/architect-to-dev.md.",
       "trigger": "on_artifact",
-      "wait_for": ["handoffs/po-to-architect.md"],
+      "wait_for": [".agent-missions/{MISSION_ID}/handoffs/po-to-architect.md"],
       "produces": [
-        "artifacts/architect/architecture-decision-record.md",
-        "artifacts/architect/api-contracts.yaml",
-        "artifacts/architect/task-breakdown.md",
-        "handoffs/architect-to-qa.md",
-        "handoffs/architect-to-dev.md"
+        ".agent-missions/{MISSION_ID}/artifacts/architect/architecture-decision-record.md",
+        ".agent-missions/{MISSION_ID}/artifacts/architect/api-contracts.yaml",
+        ".agent-missions/{MISSION_ID}/artifacts/architect/task-breakdown.md",
+        ".agent-missions/{MISSION_ID}/handoffs/architect-to-qa.md",
+        ".agent-missions/{MISSION_ID}/handoffs/architect-to-dev.md"
       ],
       "on_blocked": "route_to_ws-product-owner"
     },
@@ -59,15 +65,15 @@
       "phase": 3,
       "parallel_group": "parallel-phase-3",
       "model": "claude-sonnet-4-6",
-      "skill": "qa-engineer",
-      "task_template": "You are in PLANNING MODE. Read artifacts/po/acceptance-criteria.md and artifacts/architect/api-contracts.yaml. Write failing tests. Save to tests/ folder. Create tests/run_tests.sh and tests/DEV_HANDOFF.md. Save test plan to artifacts/qa/test-plan.md. Save handoff to handoffs/qa-to-dev.md.",
+      "skill": "qa",
+      "task_template": "You are in PLANNING MODE. Read .agent-missions/{MISSION_ID}/artifacts/po/acceptance-criteria.md and .agent-missions/{MISSION_ID}/artifacts/architect/api-contracts.yaml. Write failing tests for every AC under .agent-missions/{MISSION_ID}/tests/. Create .agent-missions/{MISSION_ID}/tests/run_tests.sh and .agent-missions/{MISSION_ID}/tests/DEV_HANDOFF.md. Save the test plan to .agent-missions/{MISSION_ID}/artifacts/qa/test-plan.md. Save the handoff to .agent-missions/{MISSION_ID}/handoffs/qa-to-dev.md.",
       "trigger": "on_artifact",
-      "wait_for": ["handoffs/architect-to-qa.md"],
+      "wait_for": [".agent-missions/{MISSION_ID}/handoffs/architect-to-qa.md"],
       "produces": [
-        "artifacts/qa/test-plan.md",
-        "tests/run_tests.sh",
-        "tests/DEV_HANDOFF.md",
-        "handoffs/qa-to-dev.md"
+        ".agent-missions/{MISSION_ID}/artifacts/qa/test-plan.md",
+        ".agent-missions/{MISSION_ID}/tests/run_tests.sh",
+        ".agent-missions/{MISSION_ID}/tests/DEV_HANDOFF.md",
+        ".agent-missions/{MISSION_ID}/handoffs/qa-to-dev.md"
       ],
       "on_blocked": "surface_to_user"
     },
@@ -78,11 +84,11 @@
       "phase": 3,
       "parallel_group": "parallel-phase-3",
       "model": "gemini-3-flash",
-      "skill": "full-stack-developer",
-      "task_template": "You are in SETUP MODE. Read artifacts/architect/architecture-decision-record.md and artifacts/architect/task-breakdown.md. Create the project structure, placeholder files, and install dependencies. Do NOT write implementation code. Save handoff to handoffs/dev-setup-complete.md.",
+      "skill": "developer",
+      "task_template": "You are in SETUP MODE. Read .agent-missions/{MISSION_ID}/artifacts/architect/architecture-decision-record.md and .agent-missions/{MISSION_ID}/artifacts/architect/task-breakdown.md. Scaffold the project directory and placeholder files under .agent-missions/{MISSION_ID}/src/, and install dependencies. Do NOT write any implementation code. Save the handoff to .agent-missions/{MISSION_ID}/handoffs/dev-setup-complete.md.",
       "trigger": "on_artifact",
-      "wait_for": ["handoffs/architect-to-dev.md"],
-      "produces": ["handoffs/dev-setup-complete.md"],
+      "wait_for": [".agent-missions/{MISSION_ID}/handoffs/architect-to-dev.md"],
+      "produces": [".agent-missions/{MISSION_ID}/handoffs/dev-setup-complete.md"],
       "on_blocked": "surface_to_user"
     },
 
@@ -92,11 +98,18 @@
       "phase": 4,
       "parallel_group": null,
       "model": "claude-sonnet-4-6",
-      "skill": "full-stack-developer",
-      "task_template": "You are in IMPLEMENTATION MODE. Read tests/DEV_HANDOFF.md first. Then implement all tasks from artifacts/architect/task-breakdown.md. Make all failing tests pass. Do NOT modify test files. Write artifacts/dev/implementation-notes.md. Save handoff to handoffs/dev-to-qa.md.",
+      "skill": "developer",
+      "task_template": "You are in IMPLEMENTATION MODE. Read .agent-missions/{MISSION_ID}/tests/DEV_HANDOFF.md first, then the ADR and task-breakdown under .agent-missions/{MISSION_ID}/artifacts/architect/. Run ./.agent-missions/{MISSION_ID}/tests/run_tests.sh to confirm all failing. Implement tasks in order until every test passes. Do NOT modify any test file. Write .agent-missions/{MISSION_ID}/artifacts/dev/implementation-notes.md and save the handoff to .agent-missions/{MISSION_ID}/handoffs/dev-to-qa.md.",
       "trigger": "on_artifact",
-      "wait_for": ["handoffs/qa-to-dev.md", "handoffs/dev-setup-complete.md"],
-      "produces": ["src/", "artifacts/dev/implementation-notes.md", "handoffs/dev-to-qa.md"],
+      "wait_for": [
+        ".agent-missions/{MISSION_ID}/handoffs/qa-to-dev.md",
+        ".agent-missions/{MISSION_ID}/handoffs/dev-setup-complete.md"
+      ],
+      "produces": [
+        ".agent-missions/{MISSION_ID}/src/",
+        ".agent-missions/{MISSION_ID}/artifacts/dev/implementation-notes.md",
+        ".agent-missions/{MISSION_ID}/handoffs/dev-to-qa.md"
+      ],
       "on_blocked": "surface_to_user"
     },
 
@@ -106,11 +119,11 @@
       "phase": 5,
       "parallel_group": null,
       "model": "gemini-3-flash",
-      "skill": "qa-engineer",
-      "task_template": "You are in VERIFICATION MODE. Run ./tests/run_tests.sh against the implementation. If all tests pass: produce artifacts/qa/sign-off.md and handoffs/qa-signoff.md with STATUS: COMPLETE. If tests fail: produce artifacts/qa/bug-report.md and handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED.",
+      "skill": "qa",
+      "task_template": "You are in VERIFICATION MODE. Run ./.agent-missions/{MISSION_ID}/tests/run_tests.sh against the implementation. If all tests pass, produce .agent-missions/{MISSION_ID}/artifacts/qa/sign-off.md and .agent-missions/{MISSION_ID}/handoffs/qa-signoff.md with STATUS: COMPLETE. If any test fails, produce .agent-missions/{MISSION_ID}/artifacts/qa/bug-report.md and .agent-missions/{MISSION_ID}/handoffs/qa-to-dev-cycle.md with STATUS: BLOCKED.",
       "trigger": "on_artifact",
-      "wait_for": ["handoffs/dev-to-qa.md"],
-      "produces": ["artifacts/qa/test-results.md"],
+      "wait_for": [".agent-missions/{MISSION_ID}/handoffs/dev-to-qa.md"],
+      "produces": [".agent-missions/{MISSION_ID}/artifacts/qa/test-results.md"],
       "on_blocked": "route_to_ws-developer",
       "on_complete": "mission_complete"
     }
@@ -123,13 +136,13 @@
       "parallel-phase-3": {
         "workspaces": ["ws-qa-planning", "ws-dev-setup"],
         "wait_for_all": true,
-        "description": "QA writes tests and Dev sets up project simultaneously"
+        "description": "QA writes failing tests while Dev scaffolds the project — both inside the same mission folder."
       }
     }
   },
 
   "model_assignments": {
-    "_comment": "Recommended model assignments. Adjust based on your budget and requirements.",
+    "_comment": "Recommended defaults. Verify these identifiers against Antigravity's current model picker and adjust for your budget.",
     "product_owner": "gemini-3.1-pro",
     "software_architect": "gemini-3.1-pro-high",
     "qa_planning": "claude-sonnet-4-6",

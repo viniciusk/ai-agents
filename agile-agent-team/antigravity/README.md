@@ -11,9 +11,10 @@ Google Antigravity (launched November 2025) is an IDE built around autonomous ag
 Key features relevant to this system:
 - **Manager View** — Mission Control where you define the goal and dispatch agents
 - **Workspaces** — Each agent works in an isolated environment (up to 5 in parallel)
-- **Skills** — Markdown files (same format as Claude) that give agents specialized expertise
+- **Skills** — Markdown files (same format as Claude) that give agents specialized expertise, loaded from `.agent/skills/` in your workspace
+- **Workflows** — Markdown files in `.agent/workflows/` that become slash commands (e.g. `/mission`, `/fix`)
 - **Artifacts** — Structured outputs agents produce that you can review and comment on
-- **Multi-model** — Assign different models to different agents (Gemini 3.1 Pro, Claude Sonnet, etc.)
+- **Multi-model** — Assign different models to different agents (Gemini 3 Pro, Claude Sonnet 4.6, etc.)
 - **MCP support** — Connect to GitHub, Jira, databases, etc.
 
 ---
@@ -22,124 +23,108 @@ Key features relevant to this system:
 
 | Agile Agent | Antigravity concept |
 |---|---|
-| Orchestrator | You, using Manager View + this mission config |
-| Product Owner agent | Workspace 1 with product-owner Skill |
-| Software Architect agent | Workspace 2 with software-architect Skill |
-| QA Engineer agent | Workspace 3 with qa-engineer Skill |
-| Full Stack Developer agent | Workspace 4 with full-stack-developer Skill |
-| Parallel execution | Workspaces 3 and 4 running simultaneously |
+| Orchestrator | The `/mission` workflow + you in Manager View |
+| Product Owner agent | Workspace with the `po` skill |
+| Software Architect agent | Workspace with the `architect` skill |
+| QA Engineer agent | Workspace with the `qa` skill (two modes) |
+| Full Stack Developer agent | Workspace with the `developer` skill (two modes) |
+| Parallel execution | QA Planning + Dev Setup dispatched simultaneously in Phase 3 |
 
 ### On "Squads"
 
-In Antigravity's community and documentation, "Squads" is sometimes used informally to describe a pre-configured group of Workspaces + Skills that work together on a domain. It's functionally the same as what Claude calls a "skill team" — a bundle of specialized skills designed to collaborate.
+In Antigravity's community and documentation, "Squads" is sometimes used informally to describe a pre-configured group of Workspaces + Skills that work together on a domain. Functionally it's the same as what Claude calls a "skill team" — a bundle of specialized skills designed to collaborate.
 
-When you save `mission-config.json` (below) as a reusable template, that template is effectively your Squad.
+In this repo, `mission-config.json` is the reference blueprint of our Squad, and the `/mission` workflow is what actually executes it.
+
+---
+
+## Folder Layout
+
+Antigravity reads workspace configuration from the `.agent/` folder at your project root:
+
+```
+agile-agent-team/antigravity/
+├── README.md                  ← this file
+├── mission-config.json        ← Squad blueprint (reference / sync target)
+└── .agent/
+    ├── agents.md              ← one-page agent catalog (human reference)
+    ├── skills/
+    │   ├── po/SKILL.md
+    │   ├── architect/SKILL.md
+    │   ├── qa/SKILL.md
+    │   └── developer/SKILL.md
+    └── workflows/
+        ├── full-mission.md    ← /mission slash command
+        └── fix.md             ← /fix slash command
+```
+
+Per-mission artifacts are written to `.agent-missions/mission-{timestamp}/` (created by Step 0 of the `/mission` workflow) — not inside `.agent/`.
 
 ---
 
 ## Prerequisites
 
-1. Install Google Antigravity (free public preview at [antigravity.google](https://antigravity.google))
-2. Sign in with your Google account
-3. Copy the Skills in `antigravity/skills/` to your Antigravity project's `.antigravity/skills/` folder
-
----
-
-## Setting Up the Skills
-
-Antigravity Skills live in `.antigravity/skills/` in your project root, in the same format as Claude skills (a folder with a `SKILL.md` file):
+1. Install Google Antigravity (free public preview at [antigravity.google](https://antigravity.google)).
+2. Sign in with your Google account.
+3. Open this repo as an Antigravity workspace, or copy the `.agent/` folder and `mission-config.json` into your own project root:
 
 ```bash
 your-project/
-  .antigravity/
+  .agent/
     skills/
-      product-owner/
-        SKILL.md        ← copy from antigravity/skills/product-owner/SKILL.md
-      software-architect/
-        SKILL.md
-      qa-engineer/
-        SKILL.md
-      full-stack-developer/
-        SKILL.md
+      po/SKILL.md
+      architect/SKILL.md
+      qa/SKILL.md
+      developer/SKILL.md
+    workflows/
+      full-mission.md
+      fix.md
+    agents.md
+  mission-config.json
 ```
 
-Skills are loaded by agents automatically when you assign them in the Manager View.
+Skills are loaded automatically. Workflows appear as slash commands (`/mission`, `/fix`) in the agent chat.
 
 ---
 
-## Running the Agile Team in Manager View
+## Running the Agile Team
 
-### Step 1: Open Manager View
+### Option A — Slash command (recommended)
 
-In Antigravity, click the **Manager** tab (top of the interface). This is your mission control.
+In the Antigravity agent chat, paste:
 
-### Step 2: Define Your Mission
+> Execute the `/mission` workflow defined in `.agent/workflows/full-mission.md` using `@[docs/plans/{FILE_WITH_DEV_SCOPE.md}]` as the mission brief snippet. Act as the orchestrator and begin Phase 1: Product Owner.
 
-Click **New Mission** and describe your business goal:
+Replace `{FILE_WITH_DEV_SCOPE.md}` with the actual filename of your scope document. The workflow will:
 
-```
-Add password reset via email to our application.
+1. Create `.agent-missions/mission-{timestamp}/` with the full folder tree and write `mission.md` from your brief.
+2. Dispatch the **Product Owner** workspace (Phase 1).
+3. When the PO→Architect handoff appears, dispatch the **Architect** (Phase 2).
+4. When the Architect's handoffs appear, dispatch **QA Planning** and **Dev Setup** in parallel (Phase 3).
+5. When both Phase-3 handoffs arrive, dispatch the **Developer** in implementation mode (Phase 4).
+6. When Dev signals ready, dispatch **QA Verification** (Phase 5). If bugs, loop back to Dev (max 5 cycles).
 
-Users should be able to request a reset link, receive it by email, 
-click the link, and set a new password. Links expire after 24 hours.
-```
+### Option B — Manager View, step by step
 
-### Step 3: Dispatch Agents in Sequence (Phase 1 & 2)
+If you prefer to dispatch each workspace manually:
 
-First, dispatch the PO agent:
-1. Click **Add Workspace**
-2. Name it: `product-owner`
-3. Assign model: Gemini 3.1 Pro (or Claude Sonnet 4.6)
-4. Assign skill: `product-owner`
-5. Task: *"Read the mission and produce user stories with acceptance criteria. Save artifacts to artifacts/po/"*
-6. Click **Dispatch**
+1. Open **Manager** and click **New Mission**.
+2. Paste your business goal (e.g. "Add password reset via email, links expire after 24 hours.").
+3. For each phase below, click **Add Workspace**, assign the matching skill and model, paste the task prompt from `mission-config.json`, and dispatch.
+4. Before Phase 1, manually create the mission folder:
+   ```bash
+   MISSION_ID="mission-$(date +%Y%m%d-%H%M%S)"
+   mkdir -p ".agent-missions/${MISSION_ID}"/{artifacts/{po,architect,qa,dev},handoffs,tests/{unit,integration,e2e},src}
+   echo "${MISSION_ID}" > .agent-missions/current-mission
+   ```
 
-Watch the PO agent work in its workspace. When the `po-to-architect.md` handoff appears in the `handoffs/` folder, dispatch the Architect:
+### Fixing a bug on an existing mission
 
-1. Click **Add Workspace**
-2. Name it: `software-architect`
-3. Assign model: Gemini 3.1 Pro High (for complex reasoning)
-4. Assign skill: `software-architect`
-5. Task: *"Read artifacts/po/ and produce the architecture. Save to artifacts/architect/"*
-6. Click **Dispatch**
+In the agent chat, paste:
 
-### Step 4: Dispatch Parallel Phase (Phase 3)
+> Execute the `/fix` workflow defined in `.agent/workflows/fix.md` on mission `mission-{timestamp}`. Fix description: "{short specific description}". From phase: developer.
 
-When Architect produces its handoffs, dispatch BOTH simultaneously:
-
-**Workspace 3 (QA Planning):**
-- Name: `qa-planning`
-- Skill: `qa-engineer`
-- Task: *"PLANNING MODE: Write failing tests for all acceptance criteria. Use api-contracts.yaml as ground truth."*
-
-**Workspace 4 (Dev Setup):**
-- Name: `dev-setup`
-- Skill: `full-stack-developer`
-- Task: *"SETUP MODE: Create project structure per ADR. Install dependencies. No implementation code yet."*
-
-This is where Antigravity's parallel execution shines — both workspaces run simultaneously.
-
-### Step 5: Implementation Loop (Phase 4 & 5)
-
-When QA planning is complete, dispatch the Dev agent for implementation:
-
-**Workspace 4 (reuse or new):**
-- Task: *"IMPLEMENTATION MODE: Read tests/DEV_HANDOFF.md. Make all failing tests pass. Do not modify test files."*
-
-When Dev completes, dispatch QA verification:
-
-**Workspace 3 (reuse):**
-- Task: *"VERIFICATION MODE: Run ./tests/run_tests.sh. Produce sign-off.md if passing, bug-report.md if failing."*
-
-If QA finds bugs: re-dispatch Dev with the bug report as context. Repeat until sign-off.
-
----
-
-## Using mission-config.json
-
-The `mission-config.json` file in this folder is a reusable template for the mission. Load it in Manager View to pre-configure all four workspaces with the right skills, models, and tasks.
-
-This config is your reusable **Squad** — a saved multi-agent configuration you can invoke for any new feature.
+Set `From phase` to `qa-planning` if the tests themselves need rewriting, or `qa-verification` if you patched the implementation manually and just need sign-off. `/fix` reuses the existing mission folder — it does **not** create a new one.
 
 ---
 
@@ -147,12 +132,12 @@ This config is your reusable **Squad** — a saved multi-agent configuration you
 
 | Aspect | Claude Agent SDK | Google Antigravity |
 |---|---|---|
-| Orchestration | You write the loop in Python/TS | You manage it in the GUI (or API) |
+| Orchestration | You write the loop in Python/TS | Driven by a markdown workflow (`/mission`) plus Manager View |
 | Parallel agents | `asyncio.gather()` | Dispatch workspaces simultaneously |
 | Visibility | Terminal output | Visual workspace dashboards |
 | Artifact review | Read files | View Artifacts panel with comments |
 | Feedback | Edit prompts and re-run | Google-Doc-style comments on Artifacts |
-| Reproducibility | Code in version control | `mission-config.json` template |
+| Reproducibility | Code in version control | `.agent/workflows/` and `mission-config.json` in version control |
 | CI/CD | Native (it's code) | Needs Antigravity API (in preview) |
 | Local files | Yes | Yes (via workspace filesystem) |
 

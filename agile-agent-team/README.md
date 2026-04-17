@@ -56,13 +56,20 @@ agile-agent-team/
 │   └── orchestrator.ts                ← TypeScript orchestration (Claude Agent SDK)
 └── antigravity/
     ├── README.md                       ← Google Antigravity implementation walkthrough
-    ├── skills/
-    │   ├── product-owner/SKILL.md     ← PO agent skill (Antigravity format)
-    │   ├── software-architect/SKILL.md
-    │   ├── full-stack-developer/SKILL.md
-    │   └── qa-engineer/SKILL.md
-    └── mission-config.json            ← Antigravity Manager mission configuration
+    ├── mission-config.json             ← Squad blueprint (reference / sync target)
+    └── .agent/                         ← Antigravity workspace config (required path)
+        ├── agents.md                   ← Agent catalog (human reference)
+        ├── skills/
+        │   ├── po/SKILL.md             ← PO agent skill
+        │   ├── architect/SKILL.md
+        │   ├── developer/SKILL.md
+        │   └── qa/SKILL.md
+        └── workflows/
+            ├── full-mission.md         ← /mission slash command
+            └── fix.md                  ← /fix slash command
 ```
+
+Per-mission outputs are written to `.agent-missions/mission-{timestamp}/` (created by Step 0 of the `/mission` workflow) — never inside `.agent/` itself.
 
 ---
 
