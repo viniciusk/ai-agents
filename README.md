@@ -11,6 +11,12 @@ This project serves as a workspace for exploring multi-agent architectures, agen
 - Maintain reusable agent skeletons and templates
 - Research agent capabilities and limitations
 
+## Teams
+
+List of teams and their configurations:
+
+- [Agile Agent Team](https://github.com/viniciusk/animist.solutions.ai-agents/blob/main/agile-agent-team)
+
 ---
 
 _For detailed information on specific agent implementations, see the project documentation._
