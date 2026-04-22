@@ -1,1 +1,8 @@
 .docs
+agile-agent-team/.DS_Store
+agile-agent-team/antigravity/.DS_Store
+agile-agent-team/antigravity/.agent/.DS_Store
+.gitignore
+laravel-fullstack-team/.agent/.DS_Store
+laravel-fullstack-team/.agent/skills/.DS_Store
+.DS_Store

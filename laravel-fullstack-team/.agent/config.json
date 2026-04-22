@@ -1,0 +1,39 @@
+{
+  "project_id": "laravel-inertia-sprint",
+  "default_intelligence": "balanced",
+  
+  "tier_mapping": {
+    "high": "google/gemini-3.1-pro-high",
+    "balanced": "google/gemini-3.1-pro-low",
+    "turbo": "google/gemini-3-flash-max"
+  },
+
+  "agents": {
+    "architect": {
+      "tier": "high",
+      "mode": "planning",
+      "temperature": 0.15
+    },
+    "scope-refiner": {
+      "tier": "balanced",
+      "mode": "planning",
+      "temperature": 0.75
+    },
+    "developer": {
+      "tier": "balanced",
+      "mode": "fast"
+    },
+    "tdd-specialist": {
+      "tier": "turbo",
+      "mode": "fast",
+      "temperature": 0
+    }
+  },
+
+  "workflow_overrides": {
+    "mission-new-feature-implementation": {
+      "mission_path": "./.agent-missions",
+      "auto_approve_turbo": true
+    }
+  }
+}
