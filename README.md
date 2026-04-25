@@ -1,4 +1,4 @@
-# animist.solutions.ai-agents
+# ai-agents
 
 A collection of multi-agent development team skeletons, configurations, and workflows designed to be copied into new projects and adapted for AI-driven development.
 
