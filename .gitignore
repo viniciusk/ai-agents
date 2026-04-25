@@ -6,3 +6,8 @@ agile-agent-team/antigravity/.agent/.DS_Store
 laravel-fullstack-team/.agent/.DS_Store
 laravel-fullstack-team/.agent/skills/.DS_Store
 .DS_Store
+laravel-fullstack-team/.agent/rules/allow-terminal-commands.md
+laravel-fullstack-team/.agent/state/context.json
+.agent-missions
+linkedin_post_full.md
+linkedin_post_trimmed.md

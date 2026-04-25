@@ -10,6 +10,7 @@ description: Refines raw user requirements into actionable backlogs. Use this at
 3. **Interactive Probe:** Ask 3–5 clarifying questions that map directly onto Job Story fields (see below).
 4. **Fill the Artifact:** Complete every section of `BACKLOG.md`, especially the Job Story, Context Fields, Clarifying Questions table, Acceptance Criteria (Gherkin), and Out of Scope.
 5. **Update State:** Append a Phase 1 entry to `MISSION_STATE.md → Phase Log` and set **Status** to `awaiting-approval`.
+6. **Record Telemetry:** Before handing over, run `python3 ./.agent/scripts/quotestimator.py --agent CURRENT_AGENT --model CURRENT_AGENT_MODEL --turns NUMBER_OF_TURNS_TAKEN --read EACH_FILE_READ --modified EACH_FILE_MODIFIED`.
 
 ## Goal
 

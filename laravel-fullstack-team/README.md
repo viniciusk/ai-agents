@@ -1,11 +1,11 @@
-# dev-team
+# laravel-fullstack-team
 
 A skeleton multi-agent development team for Laravel 12 / Inertia v3 / Vue 3 feature work. Designed to be copied into new projects and adapted — hence the emphasis on contracts, templates, and explicit phase boundaries over freeform prose.
 
 ## What lives here
 
 ```
-dev-team/
+laravel-fullstack-team/
 ├── README.md                          # this file
 ├── .agent/
 │   ├── config.json                    # agents, tier/mode/temperature assignments
@@ -18,8 +18,7 @@ dev-team/
 │   │   ├── scope-refiner/SKILL.md     # Phase 1 — turns a prompt into a BACKLOG
 │   │   ├── architect/SKILL.md         # Phase 2 + 5 — designs and reviews drift
 │   │   ├── tdd-specialist/SKILL.md    # Phase 3 + 5 — writes failing tests, verifies green
-│   │   ├── developer/SKILL.md         # Phase 4 — implements backend + frontend
-│   │   └── halt-mission/SKILL.md      # any phase — emergency brake, produces HALT_REPORT
+│   │   └── developer/SKILL.md         # Phase 4 — implements backend + frontend
 │   ├── workflows/
 │   │   └── mission-new-feature-implementation.md  # the 6-phase feature workflow
 │   ├── templates/                     # fillable skeletons for every artifact
@@ -33,7 +32,8 @@ dev-team/
 │       ├── new-mission.sh             # Phase 0 — creates a mission folder
 │       ├── archive-mission.sh         # Phase 6 — closes/abandons a mission
 │       ├── validate-state.sh          # schema check for context.json + optional MISSION_STATE
-│       └── run-tests.sh               # wraps `php artisan test` with red/green mode
+│       ├── run-tests.sh               # wraps `php artisan test` with red/green mode
+│       └── quotestimator.py           # calculates and tracks LLM token usage
 └── .agent-missions/                   # runtime — created on first mission
     ├── mission-YYYYMMDD-HHMMSS/       # one folder per feature mission
     │   ├── MISSION_STATE.md
@@ -52,8 +52,8 @@ Missions are isolated. Every feature gets its own folder under `.agent-missions/
 
 ## How to trigger the workflow
 
-1. In the target Laravel project, ensure `dev-team/` is a sibling (or set `DEV_TEAM_LARAVEL_ROOT` to your project root before running `run-tests.sh`).
-2. From the `dev-team/` root, issue the workflow trigger in your agent interface:
+1. In the target Laravel project, ensure `laravel-fullstack-team/` is a sibling (or set `DEV_TEAM_LARAVEL_ROOT` to your project root before running `run-tests.sh`).
+2. From the `laravel-fullstack-team/` root, issue the workflow trigger in your agent interface:
    ```
    /mission-new-feature-implementation
    ```
@@ -96,6 +96,15 @@ Full rules: `.agent/workflows/mission-new-feature-implementation.md → Rejectio
 
 Agents should resist the temptation to log mission-specific details in `context.json` — that pollutes the cross-session memory. If it's about _this_ feature, it goes in `MISSION_STATE.md`.
 
+## Telemetry & Cost Tracking
+
+The `quotestimator.py` script automatically runs at the end of each agent's phase to estimate token usage and API costs.
+
+- It calculates **Input Tokens** by multiplying the read context by the number of conversational turns taken.
+- It calculates **Output Tokens** efficiently by using `git diff` to count only the exact characters modified or added by the agent, avoiding overestimation.
+- Telemetry records are stored in `.agent-missions/mission-{{ID}}/telemetry.jsonl`.
+- At the end of the mission (Phase 6), a consolidated Markdown summary is appended directly to `FINAL_REVIEW.md`.
+
 ## Agent roster & why each one has the settings it does
 
 From `.agent/config.json`:
@@ -107,7 +116,7 @@ From `.agent/config.json`:
 
 ## Extending this skeleton
 
-When you copy `dev-team/` into a new project:
+When you copy `laravel-fullstack-team/` into a new project:
 
 1. Edit `.agent/config.json → project_id` and tier mappings for your model provider.
 2. Update the stack-specific language in each `SKILL.md` — the current skills name Laravel 12, Inertia v3, Vue 3, Tailwind v4 explicitly. Change those, and change the `DESIGN.md` template's TypeScript/Inertia sections accordingly.
@@ -118,4 +127,9 @@ When you copy `dev-team/` into a new project:
 
 - `bash` (tested on macOS and Linux).
 - `jq` for `validate-state.sh` (`brew install jq` / `apt-get install jq`).
+- `python3` and `git` for `quotestimator.py` telemetry generation.
 - `php` + a Laravel 12 project for `run-tests.sh`. Set `DEV_TEAM_LARAVEL_ROOT` if the Laravel project is not a sibling directory.
+
+---
+
+_powered by arauca solutions_

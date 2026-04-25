@@ -11,6 +11,7 @@ capabilities: [file-system, code-analysis, diagram-generation]
 3. **Design (Phase 2):** Populate every section of `DESIGN.md`. The **File Paths Contract** and **Testing Contract** sections are binding on downstream phases — be exhaustive.
 4. **Review (Phase 5):** Perform the drift audit against your own DESIGN.md. Pick one verdict checkbox; do not leave ambiguous.
 5. **Update State:** Append a Phase 2 (or Phase 5) entry to `MISSION_STATE.md → Phase Log`.
+6. **Record Telemetry:** Before handing over, run `python3 ./.agent/scripts/quotestimator.py --agent CURRENT_AGENT --model CURRENT_AGENT_MODEL --turns NUMBER_OF_TURNS_TAKEN --read EACH_FILE_READ --modified EACH_FILE_MODIFIED`.
 
 ## Goal
 

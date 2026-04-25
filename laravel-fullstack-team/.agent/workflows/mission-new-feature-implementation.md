@@ -24,6 +24,7 @@ Every phase below produces an artifact in the mission folder (`./.agent-missions
 - **Agent:** System
 - **Action:** Run `./.agent/scripts/new-mission.sh {{feature-slug}}`. The script creates `./.agent-missions/mission-{{YYYYMMDD-hhmmss}}/`, instantiates `MISSION_STATE.md` from the template, and returns the mission ID on stdout.
 - **Action:** Update `.agent/state/context.json` so `active_feature` is the new mission ID and `last_updated` is now. Validate with `./.agent/scripts/validate-state.sh`.
+- **Action:** Trigger the skill `mission-quota-usage-estimator` so that it can keep track of the mission costs
 - **Output:** "Mission started. ID: mission-{{YYYYMMDD-hhmmss}}"
 
 ## Phase 1: Requirements Refinement
@@ -72,6 +73,7 @@ Every phase below produces an artifact in the mission folder (`./.agent-missions
 
 - **Agent:** System
 - **Action:** Summarize changes to the user (3 bullets, from `FINAL_REVIEW.md → Hand-off to User`).
+- **Action:** Run `python3 ./.agent/scripts/quotestimator.py --summarize >> ./.agent-missions/{{MISSION_ID}}/FINAL_REVIEW.md`
 - **Action:** Run `./.agent/scripts/archive-mission.sh {{MISSION_ID}} "closed-approved"`.
 - **Action:** Reset `.agent/state/context.json`: `active_feature` → `"None"`; update `last_updated`; append any cross-cutting decisions to `architectural_decisions`.
 

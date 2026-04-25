@@ -14,6 +14,7 @@ description: Writes failing PHPUnit and Inertia tests. Use this after a design i
    - Open `FINAL_REVIEW.md` (instantiated from `.agent/templates/FINAL_REVIEW.md`) and fill **Part A — Green Verification**.
    - Run `./.agent/scripts/run-tests.sh green {{MISSION_ID}}`. Paste output; fill the Coverage vs. DESIGN Contract table.
 4. **Update State:** Append a Phase 3 (or Phase 5) entry to `MISSION_STATE.md → Phase Log`.
+5. **Record Telemetry:** Before handing over, run `python3 ./.agent/scripts/quotestimator.py --agent CURRENT_AGENT --model CURRENT_AGENT_MODEL --turns NUMBER_OF_TURNS_TAKEN --read EACH_FILE_READ --modified EACH_FILE_MODIFIED`.
 
 ## Goal
 

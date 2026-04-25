@@ -9,7 +9,8 @@ description: Implements features across the full Laravel 12 and Inertia v3 stack
 2. **Read the Tests:** `TEST_REPORT_RED.md` lists the failing tests. Treat them as the spec.
 3. **Implementation:** Laravel 12 (PHP 8.2+), Vue 3 `<script setup>`, Tailwind v4.
 4. **Persistence:** update `MISSION_STATE.md → Artifact Locations` and `Phase Log` as files are created.
-5. **Verification:** run `./.agent/scripts/run-tests.sh green {{MISSION_ID}}` until it exits 0.
+5. **Record Telemetry:** Before handing over, run `python3 ./.agent/scripts/quotestimator.py --agent CURRENT_AGENT --model CURRENT_AGENT_MODEL --turns NUMBER_OF_TURNS_TAKEN --read EACH_FILE_READ --modified EACH_FILE_MODIFIED`.
+6. **Verification:** run `./.agent/scripts/run-tests.sh green {{MISSION_ID}}` until it exits 0.
 
 ## Goal
 
