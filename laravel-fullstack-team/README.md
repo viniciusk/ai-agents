@@ -129,7 +129,3 @@ When you copy `laravel-fullstack-team/` into a new project:
 - `jq` for `validate-state.sh` (`brew install jq` / `apt-get install jq`).
 - `python3` and `git` for `quotestimator.py` telemetry generation.
 - `php` + a Laravel 12 project for `run-tests.sh`. Set `DEV_TEAM_LARAVEL_ROOT` if the Laravel project is not a sibling directory.
-
----
-
-_powered by arauca solutions_
