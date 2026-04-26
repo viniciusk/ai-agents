@@ -26,6 +26,9 @@ import datetime
 
 import subprocess
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "../.."))
+
 def estimate_tokens(file_paths):
     total_chars = 0
     total_files = 0
@@ -79,7 +82,8 @@ def estimate_modified_tokens(file_paths):
 
 def get_mission_id():
     try:
-        with open('.agent/state/context.json', 'r') as f:
+        context_file = os.path.join(ROOT_DIR, '.agent', 'state', 'context.json')
+        with open(context_file, 'r') as f:
             data = json.load(f)
             mission = data.get('active_feature')
             if mission and mission != "None":
@@ -88,17 +92,17 @@ def get_mission_id():
         pass
     return None
 
-def print_summary():
-    mission_id = get_mission_id()
+def print_summary(mission_override=None):
+    mission_id = mission_override if mission_override else get_mission_id()
     if not mission_id:
         print("No active mission found.")
         return
         
-    mission_dir = f".agent-missions/{mission_id}"
+    mission_dir = os.path.join(ROOT_DIR, f".agent-missions/{mission_id}")
     telemetry_file = os.path.join(mission_dir, "telemetry.jsonl")
     
     if not os.path.exists(telemetry_file):
-        print("No telemetry data found for the current mission.")
+        print(f"No telemetry data found for mission {mission_id}.")
         return
         
     total_read_files = 0
@@ -138,11 +142,12 @@ def generate_receipt():
     parser.add_argument('--read', nargs='*', default=[], help='Files the agent read for context')
     parser.add_argument('--modified', nargs='*', default=[], help='Files the agent modified or created')
     parser.add_argument('--turns', type=int, default=1, help='Number of conversation turns (multiplies input tokens)')
+    parser.add_argument('--mission', default=None, help='Explicitly set the mission ID (overrides context.json)')
     parser.add_argument('--summarize', action='store_true', help='Print total summary for the active mission')
     args = parser.parse_args()
 
     if args.summarize:
-        print_summary()
+        print_summary(args.mission)
         return
 
     read_files, base_read_tokens = estimate_tokens(args.read)
@@ -159,15 +164,15 @@ def generate_receipt():
     est_cost = (read_tokens / 1_000_000 * rates["input"]) + (modified_tokens / 1_000_000 * rates["output"])
     
     # Store record
-    mission_id = get_mission_id()
+    mission_id = args.mission if args.mission else get_mission_id()
     if not mission_id:
         mission_id = "global"
     
-    mission_dir = f".agent-missions/{mission_id}"
-    if mission_id != "global" and os.path.isdir(mission_dir):
+    if mission_id != "global":
+        mission_dir = os.path.join(ROOT_DIR, f".agent-missions/{mission_id}")
         telemetry_file = os.path.join(mission_dir, "telemetry.jsonl")
     else:
-        telemetry_file = ".agent/state/telemetry.jsonl"
+        telemetry_file = os.path.join(ROOT_DIR, ".agent/state/telemetry.jsonl")
         
     record = {
         "timestamp": datetime.datetime.now().isoformat(),

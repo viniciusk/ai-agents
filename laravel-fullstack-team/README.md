@@ -103,6 +103,16 @@ The `quotestimator.py` script automatically runs at the end of each agent's phas
 - Telemetry records are stored in `.agent-missions/mission-{{ID}}/telemetry.jsonl`.
 - At the end of the mission (Phase 6), a consolidated Markdown summary is appended directly to `FINAL_REVIEW.md`.
 
+## Important: Manual Model Switching
+
+Because agents run inside your IDE's chat interface, **the system cannot automatically switch LLM models** (e.g., from Gemini Pro to Gemini Flash) mid-conversation just because `.agent/config.json` specifies it.
+
+To actually respect the cost and speed optimizations in `config.json`, **you must manually act as the orchestrator**:
+
+1. Before triggering a new phase, look at the required agent's tier in `config.json`.
+2. Manually change the model dropdown in your IDE settings to match (e.g., switch to a faster/cheaper model before asking a lower-tier agent to work).
+3. The agent will explicitly remind you of the required model at the start of each phase transition.
+
 ## Agent roster & why each one has the settings it does
 
 From `.agent/config.json`:

@@ -17,6 +17,7 @@ Ensure every task is part of a traceable, isolated "Mission" to maintain project
    - Current Phase Status (e.g., "Refinement Complete").
    - Location of newly created artifacts.
    - Any architectural decisions that deviate from the initial plan.
+5. **Telemetry Tracking:** Execute the `quotestimator.py` script as a distinct step at the conclusion of every single logical phase, before updating `MISSION_STATE.md` or generating the final review. You MUST explicitly pass the files you read and modified: `python3 ./.agent/scripts/quotestimator.py --agent <agent_name> --model <model_name> --turns <N> --read <file1> <file2> --modified <file3> <file4>`.
 
 ## Enforcement
 

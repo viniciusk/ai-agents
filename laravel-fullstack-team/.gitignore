@@ -1,0 +1,4 @@
+# Ignored files for the agent team skeleton
+docs/
+.agent/state/context.json
+.agent-missions/

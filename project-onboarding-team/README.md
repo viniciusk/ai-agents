@@ -54,16 +54,26 @@ Missions are isolated. Every audit gets its own folder under `.agent-missions/`.
 
 ## The 5 phases at a glance
 
-| #   | Phase                     | Agent                     | Output                                              | Gate     |
-| --- | ------------------------- | ------------------------- | --------------------------------------------------- | -------- |
-| 0   | Initialization            | System (`new-mission.sh`) | `01_MISSION_STATE.md`                                  | —        |
-| 1   | Discovery                 | `discovery-agent`         | `02_GLOSSARY.md`                                       | **User** |
-| 2   | Security Audit            | `security-auditor`        | `03_SECURITY_REVIEW.md`                                | —        |
-| 3   | Performance Audit         | `performance-expert`      | `04_PERFORMANCE_REVIEW.md`                             | —        |
+| #   | Phase                     | Agent                     | Output                                                    | Gate     |
+| --- | ------------------------- | ------------------------- | --------------------------------------------------------- | -------- |
+| 0   | Initialization            | System (`new-mission.sh`) | `01_MISSION_STATE.md`                                     | —        |
+| 1   | Discovery                 | `discovery-agent`         | `02_GLOSSARY.md`                                          | **User** |
+| 2   | Security Audit            | `security-auditor`        | `03_SECURITY_REVIEW.md`                                   | —        |
+| 3   | Performance Audit         | `performance-expert`      | `04_PERFORMANCE_REVIEW.md`                                | —        |
 | 4   | Architecture & Debt Audit | `architecture-reviewer`   | `05_ARCHITECTURE_REVIEW.md`, `06_TECH_DEBT_ASSESSMENT.md` | —        |
 | 5   | Planning & Synthesis      | `planning-strategist`     | `07_IMPROVEMENT_PLAN.md`, `08_FINAL_REVIEW.md`            | **User** |
 
 Full workflow spec: `.agent/workflows/mission-project-onboarding.md`.
+
+## Important: Manual Model Switching
+
+Because agents run inside your IDE's chat interface, **the system cannot automatically switch LLM models** (e.g., from Gemini Pro to Gemini Flash) mid-conversation just because `.agent/config.json` specifies it.
+
+To actually respect the cost and speed optimizations in `config.json`, **you must manually act as the orchestrator**:
+
+1. Before triggering a new phase, look at the required agent's tier in `config.json`.
+2. Manually change the model dropdown in your IDE settings to match (e.g., switch to a faster/cheaper model before asking a lower-tier agent to work).
+3. The agent will explicitly remind you of the required model at the start of each phase transition.
 
 ## Requirements
 

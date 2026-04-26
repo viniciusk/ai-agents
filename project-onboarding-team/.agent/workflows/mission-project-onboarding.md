@@ -15,7 +15,8 @@ This workflow defines the sequential phases for auditing a legacy or "vibe-coded
 
 ## Rules of Engagement
 
-1. **Phase 1 (Discovery):** The `discovery-agent` maps out the core domains, technologies used, and terminology, producing `02_GLOSSARY.md`. The user must approve this glossary, as all subsequent agents will rely on its defined context to understand the application.
+1. **Model Enforcement Check:** At the very start of every phase (except Phase 0), the agent MUST remind the orchestrator (the user) to check their IDE model settings. Tell them exactly which model tier is recommended for the current agent based on `.agent/config.json` (e.g., "Please ensure you have switched to a `high` tier model like Gemini Pro before I proceed with the security audit.").
+2. **Phase 1 (Discovery):** The `discovery-agent` maps out the core domains, technologies used, and terminology, producing `02_GLOSSARY.md`. The user must approve this glossary, as all subsequent agents will rely on its defined context to understand the application.
 2. **Phase 2-4 (Parallelizable/Sequential Audit):** The security, performance, and architecture experts operate using the glossary and direct code review to assess the state of the system, identifying vulnerabilities, bottlenecks, and design flaws.
 3. **Phase 5 (Synthesis):** The `planning-strategist` consumes the raw reports to produce an actionable `07_IMPROVEMENT_PLAN.md` and generates the `08_FINAL_REVIEW.md` for human approval.
 

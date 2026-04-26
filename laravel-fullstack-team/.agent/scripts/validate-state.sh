@@ -36,7 +36,7 @@ if ! jq empty "$CONTEXT" >/dev/null 2>&1; then
 fi
 
 # Required keys: exactly this set.
-REQUIRED_KEYS=(last_updated active_feature architectural_decisions pending_tasks)
+REQUIRED_KEYS=(last_updated active_feature)
 ACTUAL_KEYS=$(jq -r 'keys_unsorted[]' "$CONTEXT" | sort)
 EXPECTED_KEYS=$(printf '%s\n' "${REQUIRED_KEYS[@]}" | sort)
 
@@ -51,8 +51,6 @@ fi
 # Type checks.
 jq -e '.last_updated | type == "string"'            "$CONTEXT" >/dev/null || fail "last_updated must be a string"
 jq -e '.active_feature | type == "string"'          "$CONTEXT" >/dev/null || fail "active_feature must be a string"
-jq -e '.architectural_decisions | type == "array"'  "$CONTEXT" >/dev/null || fail "architectural_decisions must be an array"
-jq -e '.pending_tasks | type == "array"'            "$CONTEXT" >/dev/null || fail "pending_tasks must be an array"
 
 # Soft ISO 8601 check (YYYY-MM-DDThh:mm:ss with timezone).
 TS=$(jq -r '.last_updated' "$CONTEXT")
