@@ -26,8 +26,7 @@ laravel-fullstack-team/
 │   │   ├── BACKLOG.md
 │   │   ├── DESIGN.md
 │   │   ├── TEST_REPORT_RED.md
-│   │   ├── FINAL_REVIEW.md
-│   │   └── HALT_REPORT.md
+│   │   └── FINAL_REVIEW.md
 │   └── scripts/                       # operational scripts — all agent-workflow scoped
 │       ├── new-mission.sh             # Phase 0 — creates a mission folder
 │       ├── archive-mission.sh         # Phase 6 — closes/abandons a mission
@@ -84,7 +83,6 @@ There are three user-approval gates (after Phases 1, 2, 5). Rejection never star
 - **Gate 2 rejected** → Phase 2 re-runs, OR loop back to Phase 1 if the issue is scope.
 - **Gate 5 rejected** → the architect's verdict checkbox in `FINAL_REVIEW.md → Part B` selects the loop-back target (Phase 2, 3, or 4).
 - **Drift mid-Phase-4** → developer pauses, logs the drift, and loops back to Phase 2.
-- **Agent-initiated halt** → any agent that hits the triggers in `.agent/skills/halt-mission/` (retry budget exhausted, contradictory artifacts, progress-free loop) stops and produces `HALT_REPORT.md`. Status flips to `halted`. Human either revises in place and resumes, or abandons.
 - **Abandoned** → run `.agent/scripts/archive-mission.sh MISSION_ID "abandoned: <reason>"`. The folder is preserved in `_archive/`.
 
 Full rules: `.agent/workflows/mission-new-feature-implementation.md → Rejection Handling`.

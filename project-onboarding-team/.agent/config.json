@@ -1,0 +1,45 @@
+{
+  "project_id": "project-onboarding",
+  "default_intelligence": "balanced",
+  
+  "tier_mapping": {
+    "high": "google/gemini-3.1-pro-high",
+    "balanced": "google/gemini-3.1-pro-low",
+    "turbo": "google/gemini-3-flash-max"
+  },
+
+  "agents": {
+    "discovery-agent": {
+      "tier": "balanced",
+      "mode": "planning",
+      "temperature": 0.4
+    },
+    "security-auditor": {
+      "tier": "high",
+      "mode": "planning",
+      "temperature": 0.1
+    },
+    "performance-expert": {
+      "tier": "balanced",
+      "mode": "planning",
+      "temperature": 0.2
+    },
+    "architecture-reviewer": {
+      "tier": "high",
+      "mode": "planning",
+      "temperature": 0.15
+    },
+    "planning-strategist": {
+      "tier": "balanced",
+      "mode": "planning",
+      "temperature": 0.5
+    }
+  },
+
+  "workflow_overrides": {
+    "mission-project-onboarding": {
+      "mission_path": "./.agent-missions",
+      "auto_approve_turbo": true
+    }
+  }
+}

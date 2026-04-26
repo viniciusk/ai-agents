@@ -17,7 +17,6 @@ Every phase below produces an artifact in the mission folder (`./.agent-missions
 | `DESIGN.md`          | `.agent/templates/DESIGN.md`          | `architect`                                | 2      |
 | `TEST_REPORT_RED.md` | `.agent/templates/TEST_REPORT_RED.md` | `tdd-specialist`                           | 3      |
 | `FINAL_REVIEW.md`    | `.agent/templates/FINAL_REVIEW.md`    | `tdd-specialist` + `architect`             | 5      |
-| `HALT_REPORT.md`     | `.agent/templates/HALT_REPORT.md`     | Any agent via `halt-mission` skill         | any    |
 
 ## Phase 0: Initialization
 
@@ -92,8 +91,7 @@ User approval gates can result in rejection. Agents MUST follow these rules — 
      - If design — `architect` revises DESIGN.md in place. Phases 3 and 4 do not start until approval.
    - **Gate 5 rejected (FINAL_REVIEW):** route by the verdict checkbox set in Part B — back to Phase 2, 3, or 4. Tests already written in Phase 3 stay; the tdd-specialist only adds or adjusts tests to cover new design changes.
 4. **Drift events mid-phase** (e.g. Phase 4 developer needs a file not in the contract): the developer pauses, logs the drift to `MISSION_STATE.md → Deviations from Plan`, and loops back to Phase 2. The architect decides: amend DESIGN.md (approved drift) or instruct the developer to stay within the contract.
-5. **Agent-initiated halt.** If an agent hits the triggers defined in `.agent/skills/halt-mission/SKILL.md → When to Invoke` (retry budget exhausted, irreconcilable artifact contradiction, or progress-free loop), it stops and runs the `halt-mission` skill. This produces `HALT_REPORT.md`, sets `MISSION_STATE.md → Status` to `halted`, and hands control to the human. The human either revises the offending artifact in place and resumes, or abandons per rule 6.
-6. **Abandonment.** If the user abandons the mission rather than approving or revising, run `./.agent/scripts/archive-mission.sh {{MISSION_ID}} "abandoned: <reason>"` (or `"halted: <reason>"` if closing a halted mission). Do not delete the folder — the archive is the audit trail.
+6. **Abandonment.** If the user abandons the mission rather than approving or revising, run `./.agent/scripts/archive-mission.sh {{MISSION_ID}} "abandoned: <reason>"`. Do not delete the folder — the archive is the audit trail.
 
 ## Mission ID Format
 

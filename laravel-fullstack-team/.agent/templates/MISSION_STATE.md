@@ -7,7 +7,7 @@
 - **Mission ID:** `{{MISSION_ID}}`
 - **Created:** `{{ISO_8601_TIMESTAMP}}`
 - **Feature (short name):** `{{feature-slug}}`
-- **Status:** `initialized` <!-- initialized | refining | designing | testing-red | implementing | verifying | awaiting-approval | halted | closed | abandoned -->
+- **Status:** `initialized` <!-- initialized | refining | designing | testing-red | implementing | verifying | awaiting-approval | closed | abandoned -->
 - **Current Phase:** `0 — Initialization`
 
 ## Artifact Locations
@@ -45,7 +45,7 @@ Append a new entry every time a phase starts, ends, is revised, or is rejected. 
 
 ## Retry Log
 
-Every repeated attempt at the same action (failing test re-run, rejected design revision, developer fix-and-retest loop) gets a row. The `halt-mission` skill reads this to decide when the retry budget is exhausted. Do not delete rows.
+Every repeated attempt at the same action (failing test re-run, rejected design revision, developer fix-and-retest loop) gets a row. Do not delete rows.
 
 | Attempt | Phase              | Timestamp                 | What was tried                           | Outcome                          |
 | ------- | ------------------ | ------------------------- | ---------------------------------------- | -------------------------------- | --- | --- | --- | --- |

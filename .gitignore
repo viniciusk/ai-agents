@@ -1,13 +1,13 @@
 .docs
+.DS_Store
 agile-agent-team/.DS_Store
 agile-agent-team/antigravity/.DS_Store
 agile-agent-team/antigravity/.agent/.DS_Store
-.gitignore
 laravel-fullstack-team/.agent/.DS_Store
 laravel-fullstack-team/.agent/skills/.DS_Store
-.DS_Store
 laravel-fullstack-team/.agent/rules/allow-terminal-commands.md
-laravel-fullstack-team/.agent/state/context.json
+laravel-fullstack-team/.agent/state
+project-onboarding-team/.agent/state
 .agent-missions
 linkedin_post_full.md
 linkedin_post_trimmed.md
