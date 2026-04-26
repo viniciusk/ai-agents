@@ -6,6 +6,7 @@
 
 - **Mission ID:** `{{MISSION_ID}}`
 - **Reviewed at:** `{{ISO_8601_TIMESTAMP}}`
+- **Original Scope:** `{{original_user_prompt}}`
 
 ---
 
