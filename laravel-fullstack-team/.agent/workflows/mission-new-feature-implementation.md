@@ -9,7 +9,7 @@ trigger: /mission-new-feature-implementation
 ## Global Rules Across All Phases
 
 1. **Telemetry Tracking:** Every time an agent completes a phase or hands over to another agent, they MUST execute `python3 ./.agent/scripts/quotestimator.py --agent <agent_name> --model <model_name> --turns <N> --read <file1> <file2> --modified <file3> <file4>` to record their context window usage and file modifications. You MUST explicitly provide the list of files to the `--read` and `--modified` flags. This MUST be done *before* updating `MISSION_STATE.md`.
-2. **Model Enforcement Check:** At the very start of every phase (except Phase 0 and 6), the agent MUST remind the orchestrator (the user) to check their IDE model settings. Tell them exactly which model tier is recommended for the current agent based on `.agent/config.json` (e.g., "Please ensure you have switched to a `turbo` tier model like Gemini Flash before I proceed."). Wait for their confirmation if the phase has a user gate, or explicitly state the assumption that they have swapped if the phase is hands-off.
+2. **Model Enforcement Check:** At the very start of every phase (except Phase 0 and 6), the agent MUST remind the orchestrator (the user) to check their IDE model settings. You MUST read `.agent/config.json` to find the correct `tier` for the current agent. Tell the user exactly which model tier is recommended (e.g., "Please ensure you have switched to the `{{tier}}` tier model before I proceed."). Wait for their confirmation if the phase has a user gate, or explicitly state the assumption that they have swapped if the phase is hands-off.
 
 ## Artifacts & Their Templates
 
