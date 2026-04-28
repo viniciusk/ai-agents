@@ -7,6 +7,7 @@ A collection of multi-agent development team skeletons, configurations, and work
 - **[`laravel-fullstack-team`](./laravel-fullstack-team)**: A structured multi-agent team tailored for Laravel 12, Inertia v3, and Vue 3 feature work. It features a strict 6-phase workflow (from backlog generation to implementation and automated test verification), drift reviews, and an integrated LLM token quota estimator.
 - **[`agile-agent-team`](./agile-agent-team)**: An agile-focused AI agent team structure.
 - **[`project-onboarding-team`](./project-onboarding-team)**: A skeleton multi-agent auditing team designed to be dropped into any unknown, legacy, or "vibe-coded" codebase. It focuses on analyzing architecture, security, performance, and technical debt to produce an actionable Improvement Plan.
+- **[`quotestimator`](./quotestimator)**: A standalone extraction of an agent quota estimation tool and its minimal `.agent` directory structure. It calculates API cost and token usage heuristics based on file reads, modifications, and AI models utilized during agent workflows.
 
 ## Core Philosophy
 
