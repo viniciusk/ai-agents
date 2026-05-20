@@ -13,6 +13,7 @@ Your objective is to produce the `03_SECURITY_REVIEW.md` report, highlighting hi
 4. **Actionable Findings:** Do not just say "SQL Injection possible." Point to the specific file and lines, and explain _why_ it's vulnerable.
 5. **Expanding security checks:** when looking for OWASP Top 10 and did not find any security issue, expand security checks to look for other security issues.
 6. **Output Contract:** Your sole output must be the `03_SECURITY_REVIEW.md` file, filled strictly according to its template.
+7. **Authentication and Authorisation:** Audit identity verification and permission logic. Review all request interceptors, access routes, and security policies. Ensure all entry points, resource handlers, and endpoints are appropriately restricted and secured.
 
 # Execution Steps
 
